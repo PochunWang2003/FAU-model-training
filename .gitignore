@@ -1,0 +1,16 @@
+.reference/
+config/motion_limits.json
+build/
+*.user
+*.o
+*.moc
+Makefile
+data/**
+!data/**/.gitkeep
+models/**
+!models/**/.gitkeep
+runs/**
+!runs/**/.gitkeep
+__pycache__/
+*.py[cod]
+.pytest_cache/

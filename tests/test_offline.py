@@ -1,0 +1,237 @@
+import json
+import math
+import os
+from pathlib import Path
+import socket
+import subprocess
+import tempfile
+import time
+import unittest
+import uuid
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class QtServerIntegrationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        server = ROOT / "build/server/fau-training-server"
+        if not server.is_file():
+            raise RuntimeError("build the Qt server before running integration tests")
+        probe = socket.socket()
+        probe.bind(("127.0.0.1", 0))
+        cls.port = probe.getsockname()[1]
+        probe.close()
+        cls.temp = tempfile.TemporaryDirectory(prefix="fau-training-test-")
+        cls.process = subprocess.Popen([str(server), "--port", str(cls.port), "--root", cls.temp.name],
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        deadline = time.time() + 5
+        while time.time() < deadline:
+            try:
+                with socket.create_connection(("127.0.0.1", cls.port), timeout=0.2):
+                    break
+            except OSError:
+                if cls.process.poll() is not None:
+                    raise RuntimeError("Qt server exited during startup")
+                time.sleep(0.05)
+        else:
+            raise RuntimeError("Qt server did not become ready")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.process.terminate()
+        try:
+            cls.process.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            cls.process.kill()
+            cls.process.wait(timeout=3)
+        cls.temp.cleanup()
+
+    def setUp(self):
+        self.sock = socket.create_connection(("127.0.0.1", self.port), timeout=5)
+        self.reader = self.sock.makefile("rb")
+        self.counter = 0
+        self.pending = []
+
+    def tearDown(self):
+        try:
+            self.reader.close()
+            self.sock.close()
+        except OSError:
+            pass
+
+    def receive(self, timeout=8):
+        self.sock.settimeout(timeout)
+        line = self.reader.readline()
+        if not line:
+            raise AssertionError("server closed the connection")
+        return json.loads(line)
+
+    def command(self, name, payload=None, request_id=None):
+        self.counter += 1
+        request_id = request_id or f"test-{self.counter}"
+        message = {"protocol_version": 1, "request_id": request_id, "type": "command",
+                   "command": name, "payload": payload or {}, "timestamp": time.time()}
+        self.sock.sendall(json.dumps(message).encode() + b"\n")
+        while True:
+            reply = self.receive()
+            if reply.get("type") == "response" and reply.get("request_id") == request_id:
+                return reply
+            self.pending.append(reply)
+
+    def event(self, name, timeout=10):
+        end = time.time() + timeout
+        while time.time() < end:
+            if self.pending:
+                message = self.pending.pop(0)
+            else:
+                message = self.receive(max(0.1, end - time.time()))
+            if message.get("type") == "event" and message.get("event") == name:
+                return message
+        self.fail(f"event {name} did not arrive")
+
+    def create_dataset(self, kind, dataset):
+        reply = self.command("DATASET_CREATE", {"kind": kind, "dataset": dataset, "count": 20})
+        self.assertTrue(reply["ok"], reply)
+        return reply
+
+    def wait_until_idle(self):
+        for _ in range(80):
+            if self.command("GET_STATUS")["payload"]["training_state"] == "IDLE":
+                return
+            time.sleep(0.05)
+        self.fail("worker did not return to IDLE")
+
+    def test_protocol_framing_camera_and_duplicate(self):
+        command = {"protocol_version": 1, "request_id": "partial-frame", "type": "command", "command": "HELLO", "payload": {}}
+        raw = json.dumps(command).encode()
+        self.sock.sendall(raw[:17])
+        time.sleep(0.05)
+        self.sock.sendall(raw[17:] + b"\n")
+        reply = self.receive()
+        self.assertEqual(reply["event"], "HELLO")
+        self.assertTrue(reply["ok"])
+        self.sock.sendall(raw + b"\n")
+        duplicate = self.receive()
+        self.assertFalse(duplicate["ok"])
+        self.assertIn("duplicate", duplicate["error"]["message"])
+        self.assertTrue(self.command("CAMERA_LIST")["ok"])
+        self.assertTrue(self.command("CAMERA_START", {"role": "top"})["ok"])
+        frame = self.event("CAMERA_FRAME")
+        encoded = frame["payload"]["image_base64"]
+        self.assertGreater(len(encoded), 100)
+        self.assertEqual(frame["payload"]["format"], "PNG")
+
+    def test_malformed_json_and_incomplete_line(self):
+        self.sock.sendall(b'{"protocol_version":1\n')
+        malformed = self.receive()
+        self.assertFalse(malformed["ok"])
+        self.sock.sendall(b'{"protocol_version":1,"request_id":"wait"')
+        self.sock.settimeout(0.15)
+        with self.assertRaises(socket.timeout):
+            self.reader.readline()
+
+    def test_focus_dataset_label_score_and_training_result(self):
+        dataset = "focus_" + uuid.uuid4().hex[:8]
+        self.create_dataset("focus", dataset)
+        self.assertTrue(self.command("DATASET_LABEL", {"kind":"focus", "dataset":dataset,
+                         "image":"sample_0000.pgm", "label":"sharp"})["ok"])
+        self.assertTrue(self.command("FOCUS_SCORE", {"dataset":dataset,"image":"sample_0000.pgm"})["ok"])
+        start = self.command("FOCUS_TRAIN_START", {"dataset":dataset,"epochs":4,"learning_rate":0.05})
+        self.assertTrue(start["ok"], start)
+        progress = self.event("TRAINING_PROGRESS")
+        self.assertGreaterEqual(progress["payload"]["epoch"], 1)
+        completed = self.event("TRAINING_COMPLETED", timeout=15)
+        checkpoint = Path(completed["payload"]["checkpoint"])
+        self.assertTrue(checkpoint.is_file())
+        result = json.loads((checkpoint.parent.parent.parent / "runs" / (start["payload"]["run_id"]) / "result.json").read_text())
+        self.assertEqual(result["status"], "COMPLETED")
+
+    def test_fau_annotation_and_baseline_run(self):
+        dataset = "fau_" + uuid.uuid4().hex[:8]
+        self.create_dataset("fau", dataset)
+        annotation = self.command("FAU_ANNOTATION_SAVE", {"dataset":dataset,"image":"sample_0000.pgm","role":"top",
+            "roi":{"x":0,"y":0,"width":160,"height":120},"features":[{"id":"TOP_DX","x":80,"y":60,"valid":True,"confidence":0.9}]})
+        self.assertTrue(annotation["ok"], annotation)
+        invalid = self.command("FAU_ANNOTATION_SAVE", {"dataset":dataset,"image":"sample_0000.pgm","role":"top",
+            "roi":{"x":0,"y":0,"width":160,"height":120},"features":[{"id":"TOP_DX","x":500,"y":60}]})
+        self.assertFalse(invalid["ok"])
+        start = self.command("FAU_TRAIN_START", {"dataset":dataset,"epochs":2})
+        self.assertTrue(start["ok"], start)
+        complete = self.event("TRAINING_COMPLETED")
+        self.assertIn("deterministic", complete["payload"]["warning"])
+
+    def test_dataset_folder_import_and_split(self):
+        dataset = "import_" + uuid.uuid4().hex[:8]
+        self.create_dataset("focus", dataset)
+        source = Path(self.temp.name) / "external-images"
+        source.mkdir(exist_ok=True)
+        pixels = bytes([0, 255] * 8)
+        (source / "extra.pgm").write_bytes(b"P5\n4 4\n255\n" + pixels)
+        imported = self.command("DATASET_IMPORT", {"kind":"focus","dataset":dataset,"path":str(source)})
+        self.assertTrue(imported["ok"], imported)
+        self.assertEqual(imported["payload"]["imported"], 1)
+        rows = [json.loads(line) for line in (Path(self.temp.name) / "data/focus" / dataset / "manifest.jsonl").read_text().splitlines()]
+        imported_row = next(row for row in rows if row.get("source_name") == "extra.pgm")
+        split = self.command("DATASET_SPLIT", {"kind":"focus","dataset":dataset,"image":imported_row["image"],"split":"test"})
+        self.assertTrue(split["ok"], split)
+
+    def test_cancel_and_reconnect_active_job(self):
+        dataset = "cancel_" + uuid.uuid4().hex[:8]
+        self.create_dataset("focus", dataset)
+        start = self.command("FOCUS_TRAIN_START", {"dataset":dataset,"epochs":200})
+        self.assertTrue(start["ok"], start)
+        self.command("FOCUS_TRAIN_CANCEL")
+        self.event("TRAINING_CANCELLED", timeout=8)
+        self.wait_until_idle()
+        for _ in range(50):
+            if self.command("GET_STATUS")["payload"]["training_state"] == "IDLE":
+                break
+            time.sleep(0.05)
+        else:
+            self.fail("cancelled worker did not return to IDLE")
+        running = self.command("FOCUS_TRAIN_START", {"dataset":dataset,"epochs":100})
+        self.assertTrue(running["ok"], running)
+        self.reader.close()
+        self.sock.close()
+        self.pending.clear()
+        self.sock = socket.create_connection(("127.0.0.1", self.port), timeout=5)
+        self.reader = self.sock.makefile("rb")
+        status = self.command("GET_STATUS")
+        self.assertEqual(status["payload"]["training_state"], "RUNNING")
+        self.assertEqual(status["payload"]["active_run_id"], running["payload"]["run_id"])
+        self.command("FOCUS_TRAIN_CANCEL")
+        deadline = time.time() + 8
+        while time.time() < deadline:
+            message = self.pending.pop(0) if self.pending else self.receive(deadline - time.time())
+            if message.get("event") == "TRAINING_CANCELLED" and message.get("payload", {}).get("run_id") == running["payload"]["run_id"]:
+                break
+        else:
+            self.fail("reconnected client did not receive cancellation for the active run")
+        self.wait_until_idle()
+
+    def test_motion_limits_fail_closed_and_simulate_only(self):
+        limits = self.command("MOTION_LIMIT_GET")["payload"]
+        self.assertTrue(limits["simulation_only"])
+        bad = json.loads(json.dumps(limits))
+        bad["axes"]["X"]["min"] = bad["axes"]["X"]["max"]
+        self.assertFalse(self.command("MOTION_LIMIT_VALIDATE", {"limits":bad})["ok"])
+        request = self.command("MOTION_SIMULATE", {"axis":"X","target":1.0,"speed":0.1})
+        self.assertFalse(request["ok"])
+        accepted = self.command("MOTION_SIMULATE", {"axis":"X","target":0.1,"speed":0.1})
+        self.assertTrue(accepted["ok"], accepted)
+        self.assertTrue(accepted["payload"]["simulation_only"])
+
+    def test_widgets_application_starts_offscreen(self):
+        env = os.environ.copy()
+        env["QT_QPA_PLATFORM"] = "offscreen"
+        process = subprocess.Popen([str(ROOT / "build/ui/fau-training-ui")], env=env,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(0.4)
+        self.assertIsNone(process.poll(), "Qt Widgets application exited during startup")
+        process.terminate()
+        process.wait(timeout=3)
+
+
+if __name__ == "__main__":
+    unittest.main()

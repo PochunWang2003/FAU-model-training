@@ -1,0 +1,9 @@
+{
+  "backend": "synthetic",
+  "roles": {
+    "top": {"legacy_slot": "LEFT", "serial_number": ""},
+    "side": {"legacy_slot": "RIGHT", "serial_number": ""}
+  },
+  "preview_rate_hz": 2.5,
+  "real_camera_backend_available": false
+}

@@ -1,0 +1,11 @@
+QT += core network gui
+CONFIG += c++17 console
+CONFIG -= app_bundle
+TEMPLATE = app
+TARGET = fau-training-server
+SOURCES += main.cpp trainingserver.cpp
+HEADERS += trainingserver.h
+INCLUDEPATH += ../include
+DESTDIR = $$OUT_PWD
+OBJECTS_DIR = $$OUT_PWD/obj
+MOC_DIR = $$OUT_PWD/moc

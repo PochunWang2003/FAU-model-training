@@ -1,0 +1,6 @@
+{
+  "server_host": "127.0.0.1",
+  "server_port": 8097,
+  "max_message_bytes": 1048576,
+  "camera_backend": "synthetic"
+}

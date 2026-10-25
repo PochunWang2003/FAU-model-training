@@ -1,0 +1,10 @@
+QT += core network gui widgets
+CONFIG += c++17
+TEMPLATE = app
+TARGET = fau-training-ui
+SOURCES += main.cpp mainwindow.cpp losschartwidget.cpp
+HEADERS += mainwindow.h losschartwidget.h
+FORMS += mainwindow.ui
+DESTDIR = $$OUT_PWD
+OBJECTS_DIR = $$OUT_PWD/obj
+MOC_DIR = $$OUT_PWD/moc

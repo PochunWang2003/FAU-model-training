@@ -1,0 +1,12 @@
+{
+  "machine_profile": "DEMO_ONLY",
+  "simulation_only": true,
+  "axes": {
+    "X": {"unit":"mm","min":-5,"max":5,"max_excursion":1,"max_step":0.2,"max_speed":1,"max_load":1},
+    "Y": {"unit":"mm","min":-5,"max":5,"max_excursion":1,"max_step":0.2,"max_speed":1,"max_load":1},
+    "Z": {"unit":"mm","min":-5,"max":5,"max_excursion":1,"max_step":0.2,"max_speed":1,"max_load":1},
+    "RX": {"unit":"deg","min":-2,"max":2,"max_excursion":0.5,"max_step":0.1,"max_speed":0.5,"max_load":1},
+    "RY": {"unit":"deg","min":-2,"max":2,"max_excursion":0.5,"max_step":0.1,"max_speed":0.5,"max_load":1},
+    "RZ": {"unit":"deg","min":-2,"max":2,"max_excursion":0.5,"max_step":0.1,"max_speed":0.5,"max_load":1}
+  }
+}
