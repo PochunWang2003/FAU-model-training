@@ -24,4 +24,4 @@ Run build plus offline integration tests:
 python3 scripts/test.py
 ```
 
-Use the Focus Training tab: connect, create `focus_demo`, then select Start focus training. The server creates and supervises the worker; epoch loss and accuracy arrive over TCP. The FAU tab can create `fau_demo`, save the default example keypoint, and run the deterministic baseline. A display server is needed for interactive UI use; tests use Qt's offscreen platform plugin for startup only.
+Use the Focus Training tab: connect, create `focus_demo`, then select Start focus training. The server creates and supervises the worker; epoch loss and accuracy arrive over TCP. The FAU tab can create `fau_demo`, save keypoints, assign train/validation/test splits, and start either the pretrained ResNet18 keypoint workflow or deterministic offline baseline. Pretrained workflows require compatible PyTorch and torchvision; they were not available in the verification environment. A display server is needed for interactive UI use; tests use Qt's offscreen platform plugin for startup only.

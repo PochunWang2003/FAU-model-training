@@ -146,6 +146,12 @@ class QtServerIntegrationTests(unittest.TestCase):
         self.assertTrue(checkpoint.is_file())
         result = json.loads((checkpoint.parent.parent.parent / "runs" / (start["payload"]["run_id"]) / "result.json").read_text())
         self.assertEqual(result["status"], "COMPLETED")
+        evaluated = self.command("FOCUS_EVALUATE", {"run_id":start["payload"]["run_id"]})
+        self.assertTrue(evaluated["ok"], evaluated)
+        inferred = self.command("FOCUS_INFER", {"dataset":dataset,"image":"sample_0000.pgm","checkpoint":checkpoint.name})
+        self.assertTrue(inferred["ok"], inferred)
+        self.assertIn(inferred["payload"]["label"], ("sharp", "blurred"))
+        self.assertGreater(len(inferred["payload"]["image_base64"]), 100)
 
     def test_fau_annotation_and_baseline_run(self):
         dataset = "fau_" + uuid.uuid4().hex[:8]
@@ -160,6 +166,22 @@ class QtServerIntegrationTests(unittest.TestCase):
         self.assertTrue(start["ok"], start)
         complete = self.event("TRAINING_COMPLETED")
         self.assertIn("deterministic", complete["payload"]["warning"])
+        checkpoint = Path(complete["payload"]["checkpoint"])
+        inferred = self.command("FAU_INFER", {"dataset":dataset,"image":"sample_0000.pgm","role":"top","checkpoint":checkpoint.name})
+        self.assertTrue(inferred["ok"], inferred)
+        self.assertTrue(inferred["payload"]["predictions"])
+        self.assertIn("calibration", inferred["payload"])
+
+    def test_pretrained_worker_reports_missing_dependency(self):
+        if __import__("importlib.util", fromlist=["find_spec"]).find_spec("torch"):
+            self.skipTest("PyTorch is installed; do not launch a pretrained-weight download in this offline test")
+        dataset = "pretrained_" + uuid.uuid4().hex[:8]
+        self.create_dataset("focus", dataset)
+        start = self.command("FOCUS_TRAIN_START", {"dataset":dataset,"architecture":"mobilenet_v3_small",
+                              "epochs":1,"batch_size":2,"learning_rate":0.0001,"device":"cpu"})
+        self.assertTrue(start["ok"], start)
+        failed = self.event("TRAINING_FAILED", timeout=10)
+        self.assertIn("PyTorch", failed["payload"]["error"])
 
     def test_dataset_folder_import_and_split(self):
         dataset = "import_" + uuid.uuid4().hex[:8]
@@ -213,6 +235,10 @@ class QtServerIntegrationTests(unittest.TestCase):
     def test_motion_limits_fail_closed_and_simulate_only(self):
         limits = self.command("MOTION_LIMIT_GET")["payload"]
         self.assertTrue(limits["simulation_only"])
+        feedback = self.command("MOTION_FEEDBACK_GET")["payload"]
+        self.assertEqual(feedback["pose_source"], "SIMULATED")
+        self.assertEqual(feedback["raw_count_source"], "UNAVAILABLE")
+        self.assertFalse(feedback["raw_counts_available"])
         bad = json.loads(json.dumps(limits))
         bad["axes"]["X"]["min"] = bad["axes"]["X"]["max"]
         self.assertFalse(self.command("MOTION_LIMIT_VALIDATE", {"limits":bad})["ok"])
@@ -221,6 +247,7 @@ class QtServerIntegrationTests(unittest.TestCase):
         accepted = self.command("MOTION_SIMULATE", {"axis":"X","target":0.1,"speed":0.1})
         self.assertTrue(accepted["ok"], accepted)
         self.assertTrue(accepted["payload"]["simulation_only"])
+        self.assertEqual(accepted["payload"]["motion_feedback"]["pose"][0], 0.1)
 
     def test_widgets_application_starts_offscreen(self):
         env = os.environ.copy()

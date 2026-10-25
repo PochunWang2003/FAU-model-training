@@ -15,11 +15,11 @@ Implemented commands:
 - Server/status: `HELLO`, `GET_STATUS`, `TRAINING_STATUS`
 - Camera: `CAMERA_LIST`, `CAMERA_OPEN`, `CAMERA_CLOSE`, `CAMERA_START`, `CAMERA_STOP`, `CAMERA_CAPTURE`
 - Dataset: `DATASET_CREATE`, `DATASET_LIST`, `DATASET_IMPORT`, `DATASET_LABEL`, `DATASET_SPLIT`
-- Focus: `FOCUS_SCORE`, `FOCUS_TRAIN_START`, `FOCUS_TRAIN_CANCEL`
-- FAU: `FAU_ANNOTATION_SAVE`, `FAU_TRAIN_START`, `FAU_TRAIN_CANCEL`
-- Runs: `TRAINING_RUNS`
-- Simulation: `MOTION_LIMIT_GET`, `MOTION_LIMIT_VALIDATE`, `MOTION_LIMIT_SAVE`, `MOTION_SIMULATE`
+- Focus: `FOCUS_SCORE`, `FOCUS_TRAIN_START`, `FOCUS_TRAIN_CANCEL`, `FOCUS_EVALUATE`, `FOCUS_INFER`
+- FAU: `FAU_ANNOTATION_SAVE`, `FAU_TRAIN_START`, `FAU_TRAIN_CANCEL`, `FAU_EVALUATE`, `FAU_INFER`
+- Runs: `TRAINING_STATUS`, `TRAINING_RUNS`, `TRAINING_RESULT`
+- Simulation/feedback: `MOTION_LIMIT_GET`, `MOTION_LIMIT_VALIDATE`, `MOTION_LIMIT_SAVE`, `MOTION_SIMULATE`, `MOTION_FEEDBACK_GET`
 
-Events: `CAMERA_FRAME`, `TRAINING_STARTED`, `TRAINING_PROGRESS`, `TRAINING_COMPLETED`, `TRAINING_FAILED`, `TRAINING_CANCELLED`, and `SERVER_LOG`.
+Events/responses: `CAMERA_FRAME`, `TRAINING_STARTED`, `TRAINING_PROGRESS`, `TRAINING_COMPLETED`, `TRAINING_FAILED`, `TRAINING_CANCELLED`, `FOCUS_INFER`, `FAU_INFER`, and `SERVER_LOG`.
 
-The command families `CAMERA_SET_PARAMETER`, `FOCUS_EVALUATE`, `FOCUS_INFER`, `FAU_EVALUATE`, `FAU_INFER`, and `TRAINING_RESULT` are not implemented yet and return an unknown-command error. Exposure/gain and inference are not silently simulated. The server binds only to loopback by default. Training events/results are sent only to the requesting connection; reconnecting clients can query active status but do not receive old events.
+`CAMERA_SET_PARAMETER` remains unavailable. Inference requires an existing checkpoint and image in the selected dataset. The statistical/gradient baselines work without PyTorch; `.pt` inference needs compatible PyTorch/torchvision. Exposure/gain are not silently simulated. The server binds only to loopback by default. Training events/results are sent only to the requesting connection; reconnecting clients can query active status and attach to a running job without replaying old events.

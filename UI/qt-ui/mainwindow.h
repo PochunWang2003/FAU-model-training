@@ -24,6 +24,7 @@ private slots:
     void appendLog(const QString &text);
     QJsonObject motionLimitsFromTable() const;
     void applyMotionLimits(const QJsonObject &limits);
+    void applyMotionFeedback(const QJsonObject &feedback);
 
 private:
     Ui::MainWindow *ui;

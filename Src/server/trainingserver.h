@@ -12,6 +12,11 @@
 #include <QTcpSocket>
 #include <QTimer>
 
+#include "motion/IMotionFeedbackProvider.h"
+#include "motion/SimulatedMotionFeedbackProvider.h"
+
+#include <memory>
+
 class TrainingServer final : public QObject
 {
     Q_OBJECT
@@ -26,6 +31,8 @@ private slots:
     void sendPreviewFrames();
     void readWorkerOutput();
     void finishWorker(int exitCode, QProcess::ExitStatus status);
+    void readInferenceOutput();
+    void finishInference(int exitCode, QProcess::ExitStatus status);
 
 private:
     void processMessage(QTcpSocket *socket, const QJsonObject &message);
@@ -39,10 +46,13 @@ private:
     bool createDataset(const QString &kind, const QString &id, int count, QString *error);
     void startTraining(QTcpSocket *socket, const QString &requestId, const QString &task,
                        const QJsonObject &payload);
+    void startInference(QTcpSocket *socket, const QString &requestId, const QString &task,
+                        const QJsonObject &payload);
     QJsonObject status() const;
     QJsonObject defaultLimits() const;
     QString validateLimits(const QJsonObject &limits) const;
     QString validateMotion(const QJsonObject &request) const;
+    QJsonObject poseMap() const;
 
     QString m_projectRoot;
     QString m_workerScript;
@@ -52,15 +62,23 @@ private:
     QHash<QTcpSocket *, QSet<QString>> m_streamingRoles;
     QTimer m_previewTimer;
     QPointer<QProcess> m_worker;
+    QPointer<QProcess> m_inference;
     QPointer<QTcpSocket> m_jobClient;
+    QPointer<QTcpSocket> m_inferenceClient;
     QString m_activeRunId;
     QString m_activeTask;
     QString m_activeRunDir;
     QString m_workerOutput;
     QString m_workerTerminalEvent;
+    QJsonObject m_workerTerminalPayload;
+    QString m_inferenceRequestId;
+    QString m_inferenceCommand;
+    QString m_inferenceOutput;
+    QString m_inferenceImagePath;
     bool m_cancelRequested = false;
     QJsonObject m_limits;
-    QJsonObject m_positions;
+    std::unique_ptr<IMotionFeedbackProvider> m_motionFeedback;
+    SimulatedMotionFeedbackProvider *m_simulatedMotionFeedback = nullptr;
 };
 
 #endif

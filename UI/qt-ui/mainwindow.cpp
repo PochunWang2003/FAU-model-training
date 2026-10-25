@@ -4,12 +4,14 @@
 
 #include <QDateTime>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QHeaderView>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMessageBox>
 #include <QPixmap>
+#include <QPainter>
 #include <QTableWidgetItem>
 
 namespace {
@@ -41,6 +43,7 @@ MainWindow::MainWindow(QWidget *parent)
         sendCommand("HELLO");
         sendCommand("GET_STATUS");
         sendCommand("MOTION_LIMIT_GET");
+        sendCommand("MOTION_FEEDBACK_GET");
     });
     connect(&m_socket, &QTcpSocket::disconnected, this, [this]() {
         ui->serverLabel->setText("Server: disconnected");
@@ -69,9 +72,17 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->startFocusTrainingButton, &QPushButton::clicked, this, [this]() {
         ui->focusLossChart->clear();
         ui->focusProgressBar->setValue(0);
+        const bool useOffline = ui->focusArchitectureCombo->currentIndex() == 1;
+        const QString architecture = useOffline ? "statistical-logistic-regression" : "mobilenet_v3_small";
+        const QString device = ui->focusDeviceCombo->currentIndex() == 1 ? "cuda" : "cpu";
         sendCommand("FOCUS_TRAIN_START", {{"dataset", ui->focusDatasetEdit->text().trimmed()},
-                    {"epochs", ui->focusEpochSpin->value()}, {"learning_rate", ui->focusLearningRateSpin->value()},
-                    {"device", "cpu"}, {"architecture", "statistical-logistic-regression"}});
+                    {"epochs", ui->focusEpochSpin->value()}, {"batch_size", ui->focusBatchSizeSpin->value()},
+                    {"learning_rate", ui->focusLearningRateSpin->value()}, {"device", device},
+                    {"architecture", architecture}, {"model_name", ui->focusModelNameEdit->text().trimmed()}});
+    });
+    connect(ui->focusArchitectureCombo, &QComboBox::currentIndexChanged, this, [this](int index) {
+        ui->focusLearningRateSpin->setValue(index == 1 ? 0.05 : 0.0001);
+        ui->focusEpochSpin->setValue(index == 1 ? 20 : 30);
     });
     connect(ui->cancelFocusTrainingButton, &QPushButton::clicked, this, [this]() { sendCommand("FOCUS_TRAIN_CANCEL"); });
     connect(ui->startTopButton, &QPushButton::clicked, this, [this]() { sendCommand("CAMERA_OPEN", {{"role", "top"}}); sendCommand("CAMERA_START", {{"role", "top"}}); });
@@ -90,8 +101,21 @@ MainWindow::MainWindow(QWidget *parent)
                     {"image", ui->fauImageEdit->text().trimmed()}, {"role", ui->fauRoleCombo->currentText()},
                     {"roi", roi}, {"features", features}});
     });
+    connect(ui->setFauSplitButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("DATASET_SPLIT", {{"kind", "fau"}, {"dataset", ui->fauDatasetEdit->text().trimmed()},
+                    {"image", ui->fauImageEdit->text().trimmed()}, {"split", ui->fauSplitCombo->currentText()}});
+    });
     connect(ui->startFauTrainingButton, &QPushButton::clicked, this, [this]() {
-        sendCommand("FAU_TRAIN_START", {{"dataset", ui->fauDatasetEdit->text().trimmed()}, {"epochs", 10}, {"device", "cpu"}});
+        ui->fauLossChart->clear();
+        ui->fauProgressBar->setValue(0);
+        const bool useBaseline = ui->fauArchitectureCombo->currentIndex() == 1;
+        const QString architecture = useBaseline ? "gradient-centroid" : "resnet18_keypoint";
+        const QString device = ui->fauDeviceCombo->currentIndex() == 1 ? "cuda" : "cpu";
+        sendCommand("FAU_TRAIN_START", {{"dataset", ui->fauDatasetEdit->text().trimmed()},
+                    {"architecture", architecture}, {"role", ui->fauTrainingRoleCombo->currentText()},
+                    {"epochs", ui->fauEpochSpin->value()}, {"batch_size", ui->fauBatchSizeSpin->value()},
+                    {"learning_rate", ui->fauLearningRateSpin->value()}, {"device", device},
+                    {"model_name", ui->fauModelNameEdit->text().trimmed()}});
     });
     connect(ui->cancelFauTrainingButton, &QPushButton::clicked, this, [this]() { sendCommand("FAU_TRAIN_CANCEL"); });
     connect(ui->loadLimitsButton, &QPushButton::clicked, this, [this]() { sendCommand("MOTION_LIMIT_GET"); });
@@ -101,6 +125,23 @@ MainWindow::MainWindow(QWidget *parent)
         sendCommand("MOTION_SIMULATE", {{"axis", ui->motionAxisCombo->currentText()}, {"target", ui->motionTargetSpin->value()}, {"speed", ui->motionSpeedSpin->value()}});
     });
     connect(ui->refreshRunsButton, &QPushButton::clicked, this, [this]() { sendCommand("TRAINING_RUNS"); });
+    connect(ui->evaluateFocusButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("FOCUS_EVALUATE", {{"run_id", ui->evaluationRunIdEdit->text().trimmed()}});
+    });
+    connect(ui->evaluateFauButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("FAU_EVALUATE", {{"run_id", ui->evaluationRunIdEdit->text().trimmed()}});
+    });
+    connect(ui->focusInferenceButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("FOCUS_INFER", {{"dataset", ui->focusDatasetEdit->text().trimmed()},
+                    {"image", ui->focusImageEdit->text().trimmed()},
+                    {"checkpoint", ui->focusInferenceCheckpointEdit->text().trimmed()}});
+    });
+    connect(ui->fauInferenceButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("FAU_INFER", {{"dataset", ui->fauDatasetEdit->text().trimmed()},
+                    {"image", ui->fauImageEdit->text().trimmed()},
+                    {"role", ui->fauRoleCombo->currentText()},
+                    {"checkpoint", ui->fauInferenceCheckpointEdit->text().trimmed()}});
+    });
 }
 
 MainWindow::~MainWindow()
@@ -179,9 +220,18 @@ void MainWindow::handleMessage(const QJsonObject &message)
             .arg(epoch).arg(epochs).arg(payload.value("train_loss").toDouble(), 0, 'f', 4)
             .arg(payload.value("validation_loss").toDouble(), 0, 'f', 4)
             .arg(payload.value("accuracy").toDouble(-1.0) < 0 ? QStringLiteral("n/a") : QString::number(payload.value("accuracy").toDouble() * 100.0, 'f', 1) + "%");
-        ui->focusMetricsLabel->setText(metrics);
-        ui->focusLossChart->addPoint(payload.value("train_loss").toDouble(), payload.value("validation_loss").toDouble());
-        ui->focusLog->appendPlainText(metrics);
+        if (payload.value("task").toString() == "fau" || payload.contains("mean_pixel_error")) {
+            ui->fauProgressBar->setMaximum(epochs); ui->fauProgressBar->setValue(epoch);
+            const QString error = payload.value("mean_pixel_error").isNull() ? QStringLiteral("n/a") : QString::number(payload.value("mean_pixel_error").toDouble(), 'f', 2) + " px";
+            ui->fauMetricsLabel->setText(QString("Epoch: %1/%2 · Validation loss: %3 · Mean pixel error: %4")
+                .arg(epoch).arg(epochs).arg(payload.value("validation_loss").toDouble(), 0, 'f', 5).arg(error));
+            if (payload.contains("train_loss") && payload.contains("validation_loss")) ui->fauLossChart->addPoint(payload.value("train_loss").toDouble(), payload.value("validation_loss").toDouble());
+            ui->fauOutput->appendPlainText(ui->fauMetricsLabel->text());
+        } else {
+            ui->focusMetricsLabel->setText(metrics);
+            if (payload.contains("train_loss") && payload.contains("validation_loss")) ui->focusLossChart->addPoint(payload.value("train_loss").toDouble(), payload.value("validation_loss").toDouble());
+            ui->focusLog->appendPlainText(metrics);
+        }
         if (payload.contains("note")) ui->fauOutput->appendPlainText(payload.value("note").toString());
         return;
     }
@@ -191,9 +241,18 @@ void MainWindow::handleMessage(const QJsonObject &message)
     } else if (event == "TRAINING_COMPLETED") {
         ui->trainingStateLabel->setText("Training: completed");
         const QString summary = QJsonDocument(payload).toJson(QJsonDocument::Indented);
+        ui->evaluationRunIdEdit->setText(payload.value("run_id").toString());
         ui->resultsOutput->appendPlainText(summary);
         ui->dashboardResults->appendPlainText(summary);
         ui->fauOutput->appendPlainText(summary);
+        if (payload.value("task").toString() == "focus") {
+            ui->focusCheckpointLabel->setText("Best checkpoint: " + payload.value("checkpoint").toString());
+            ui->focusInferenceCheckpointEdit->setText(QFileInfo(payload.value("checkpoint").toString()).fileName());
+        }
+        if (payload.value("task").toString().startsWith("fau")) {
+            ui->fauCheckpointLabel->setText("Best checkpoint: " + payload.value("checkpoint").toString());
+            ui->fauInferenceCheckpointEdit->setText(QFileInfo(payload.value("checkpoint").toString()).fileName());
+        }
         appendLog("Training run completed: " + payload.value("run_id").toString());
     } else if (event == "TRAINING_FAILED" || event == "TRAINING_CANCELLED") {
         ui->trainingStateLabel->setText("Training: " + event.mid(QStringLiteral("TRAINING_").size()).toLower());
@@ -202,17 +261,51 @@ void MainWindow::handleMessage(const QJsonObject &message)
         ui->trainingStateLabel->setText("Training: " + payload.value("training_state").toString());
         ui->cameraStatusLabel->setText(payload.value("camera_backend").toString());
         if (!payload.value("active_run_id").toString().isEmpty()) ui->runStatusLabel->setText(payload.value("active_run_id").toString());
+        applyMotionFeedback(payload.value("motion_feedback").toObject());
+    } else if (event == "MOTION_FEEDBACK_GET") {
+        applyMotionFeedback(payload);
     } else if (event == "MOTION_LIMIT_GET") {
         applyMotionLimits(payload);
     } else if (event == "MOTION_LIMIT_VALIDATE" || event == "MOTION_LIMIT_SAVE") {
         appendLog(event + (payload.value("saved").toBool() ? " saved and validated" : " passed server validation"));
     } else if (event == "MOTION_SIMULATE") {
         ui->simulatedPositionLabel->setText("Simulated position: " + QString::fromUtf8(QJsonDocument(payload.value("positions").toObject()).toJson(QJsonDocument::Compact)));
+        applyMotionFeedback(payload.value("motion_feedback").toObject());
     } else if (event == "FOCUS_SCORE") {
         const QString score = QString::number(payload.value("score").toDouble(), 'g', 8);
         ui->focusLog->appendPlainText("Variance of Laplacian score: " + score + " (traditional baseline, not trained model)");
     } else if (event == "TRAINING_RUNS") {
         ui->resultsOutput->setPlainText(QString::fromUtf8(QJsonDocument(payload.value("runs").toArray()).toJson(QJsonDocument::Indented)));
+    } else if (event == "FOCUS_EVALUATE" || event == "FAU_EVALUATE" || event == "TRAINING_RESULT") {
+        ui->resultsOutput->appendPlainText(event + ":\n" + QString::fromUtf8(QJsonDocument(payload).toJson(QJsonDocument::Indented)));
+    } else if (event == "FOCUS_INFER" || event == "FAU_INFER") {
+        const QByteArray imageBytes = QByteArray::fromBase64(payload.value("image_base64").toString().toLatin1());
+        QPixmap pixmap; pixmap.loadFromData(imageBytes, "PNG");
+        QLabel *preview = event == "FOCUS_INFER" ? ui->focusInferencePreview : ui->fauInferencePreview;
+        pixmap = pixmap.scaled(preview->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        const double scaleX = payload.value("image_width").toInt() > 0 ? static_cast<double>(pixmap.width()) / payload.value("image_width").toInt() : 1.0;
+        const double scaleY = payload.value("image_height").toInt() > 0 ? static_cast<double>(pixmap.height()) / payload.value("image_height").toInt() : 1.0;
+        if (event == "FAU_INFER") {
+            QPainter painter(&pixmap);
+            painter.setRenderHint(QPainter::Antialiasing);
+            painter.setPen(QPen(QColor(255, 60, 60), 2));
+            const QJsonArray points = payload.value("predictions").toArray();
+            QStringList summaries;
+            for (const QJsonValue &pointValue : points) {
+                const QJsonObject point = pointValue.toObject();
+                const QPointF location(point.value("x").toDouble() * scaleX, point.value("y").toDouble() * scaleY);
+                painter.drawEllipse(location, 6.0, 6.0);
+                painter.drawText(location + QPointF(8, -8), point.value("id").toString());
+                summaries.append(QString("%1=(%2,%3) px, confidence %4")
+                    .arg(point.value("id").toString()).arg(point.value("x").toDouble(),0,'f',1)
+                    .arg(point.value("y").toDouble(),0,'f',1).arg(point.value("confidence").toDouble(),0,'f',3));
+            }
+            ui->fauInferenceLabel->setText(payload.value("architecture").toString() + " · " + summaries.join("; ") + " · no calibration");
+        } else {
+            ui->focusInferenceLabel->setText(QString("%1 · confidence %2")
+                .arg(payload.value("label").toString()).arg(payload.value("confidence").toDouble(),0,'f',3));
+        }
+        preview->setPixmap(pixmap);
     } else if (event == "FAU_ANNOTATION_SAVE") {
         ui->fauOutput->appendPlainText("Annotation saved with schema version " + QString::number(payload.value("schema_version").toInt()));
     } else if (event == "DATASET_CREATE") {
@@ -260,4 +353,28 @@ void MainWindow::applyMotionLimits(const QJsonObject &limits)
         ui->motionTable->item(row, 1)->setText(values.value("unit").toString());
         for (int column = 0; column < text.size(); ++column) ui->motionTable->item(row, column + 2)->setText(text.at(column));
     }
+}
+
+void MainWindow::applyMotionFeedback(const QJsonObject &feedback)
+{
+    const QString poseState = feedback.value("pose_source").toString("UNAVAILABLE");
+    const QStringList poseFields{"poseValueX", "poseValueY", "poseValueZ", "poseValueRX", "poseValueRY", "poseValueRZ"};
+    const QStringList countFields{"countValueX", "countValueY", "countValueZ", "countValueRX", "countValueRY", "countValueRZ"};
+    const QJsonArray pose = feedback.value("pose").toArray();
+    for (int index = 0; index < poseFields.size(); ++index) {
+        QLabel *poseLabel = findChild<QLabel *>(poseFields.at(index));
+        if (poseLabel) poseLabel->setText(index < pose.size() && poseState != "UNAVAILABLE"
+            ? QString::number(pose.at(index).toDouble(), 'f', 6) : QStringLiteral("—"));
+        QLabel *countLabel = findChild<QLabel *>(countFields.at(index));
+        const QJsonArray counts = feedback.value("raw_counts").toArray();
+        if (countLabel) countLabel->setText(index < counts.size() && !counts.at(index).isNull()
+            ? QString::number(counts.at(index).toDouble(), 'f', 0) : QStringLiteral("—"));
+    }
+    ui->poseSourceLabel->setText(poseState + (poseState == "REAL" ? " · GMRT provider" : " · simulated provider; not hardware feedback"));
+    const QString countState = feedback.value("raw_count_source").toString("UNAVAILABLE");
+    ui->countSourceLabel->setText(countState == "UNAVAILABLE"
+        ? QStringLiteral("UNAVAILABLE · no encoder-count provider")
+        : countState + QStringLiteral(" · count source explicitly identified"));
+    ui->cameraStatusLabel->setText("synthetic");
+    ui->cameraRoleStatusLabel->setText("Synthetic source · TOP and SIDE roles");
 }

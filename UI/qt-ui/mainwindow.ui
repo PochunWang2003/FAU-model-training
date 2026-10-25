@@ -2,61 +2,1012 @@
 <ui version="4.0">
  <class>MainWindow</class>
  <widget class="QMainWindow" name="MainWindow">
-  <property name="windowTitle"><string>FAU Model Training</string></property>
-  <property name="minimumSize"><size><width>980</width><height>680</height></size></property>
-  <property name="styleSheet"><string notr="true">QMainWindow { background:#17212b; } QWidget { color:#e7edf3; font-size:10pt; } QGroupBox { border:1px solid #45515c; border-radius:5px; margin-top:12px; padding:8px; } QGroupBox::title { subcontrol-origin:margin; left:10px; padding:0 4px; } QPushButton { background:#286b8e; border:0; border-radius:4px; padding:7px 12px; } QPushButton:hover { background:#3385ae; } QLineEdit,QSpinBox,QDoubleSpinBox,QComboBox,QTableWidget,QTextEdit,QPlainTextEdit { background:#202c38; border:1px solid #45515c; padding:4px; } QTabWidget::pane { border:1px solid #45515c; } QTabBar::tab { background:#202c38; padding:9px 14px; } QTabBar::tab:selected { background:#286b8e; } QLabel#previewTop,QLabel#previewSide { background:#101820; border:1px solid #536270; }</string></property>
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>980</width>
+    <height>680</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>980</width>
+    <height>680</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>FAU Model Training</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">QMainWindow { background:#17212b; } QWidget { color:#e7edf3; font-size:10pt; } QGroupBox { border:1px solid #45515c; border-radius:5px; margin-top:12px; padding:8px; } QGroupBox::title { subcontrol-origin:margin; left:10px; padding:0 4px; } QPushButton { background:#286b8e; border:0; border-radius:4px; padding:7px 12px; } QPushButton:hover { background:#3385ae; } QLineEdit,QSpinBox,QDoubleSpinBox,QComboBox,QTableWidget,QTextEdit,QPlainTextEdit { background:#202c38; border:1px solid #45515c; padding:4px; } QTabWidget::pane { border:1px solid #45515c; } QTabBar::tab { background:#202c38; padding:9px 14px; } QTabBar::tab:selected { background:#286b8e; } QLabel#previewTop,QLabel#previewSide { background:#101820; border:1px solid #536270; }</string>
+  </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="mainLayout">
     <item>
      <layout class="QHBoxLayout" name="connectionLayout">
-      <item><widget class="QLabel" name="serverLabel"><property name="text"><string>Server: disconnected</string></property></widget></item>
-      <item><widget class="QLineEdit" name="hostEdit"><property name="text"><string>127.0.0.1</string></property><property name="maximumWidth"><number>180</number></property></widget></item>
-      <item><widget class="QSpinBox" name="portSpin"><property name="maximum"><number>65535</number></property><property name="value"><number>8097</number></property></widget></item>
-      <item><widget class="QPushButton" name="connectButton"><property name="text"><string>Connect</string></property></widget></item>
-      <item><spacer name="connectionSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>30</width><height>20</height></size></property></spacer></item>
-      <item><widget class="QLabel" name="trainingStateLabel"><property name="text"><string>Training: idle</string></property></widget></item>
+      <item>
+       <widget class="QLabel" name="serverLabel">
+        <property name="text">
+         <string>Server: disconnected</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="hostEdit">
+        <property name="text">
+         <string>127.0.0.1</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSpinBox" name="portSpin">
+        <property name="maximum">
+         <number>65535</number>
+        </property>
+        <property name="value">
+         <number>8097</number>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="connectButton">
+        <property name="text">
+         <string>Connect</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="connectionSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>30</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QLabel" name="trainingStateLabel">
+        <property name="text">
+         <string>Training: idle</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </item>
     <item>
      <widget class="QTabWidget" name="tabWidget">
-      <widget class="QWidget" name="dashboardTab"><attribute name="title"><string>Dashboard</string></attribute>
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="QWidget" name="dashboardTab">
+       <attribute name="title">
+        <string>Dashboard</string>
+       </attribute>
        <layout class="QVBoxLayout" name="dashboardLayout">
-        <item><widget class="QLabel" name="dashboardTitle"><property name="text"><string>Offline visual training prototype</string></property><property name="styleSheet"><string>font-size:20pt;font-weight:bold;padding:12px;</string></property></widget></item>
-        <item><widget class="QGroupBox" name="statusGroup"><property name="title"><string>System status</string></property><layout class="QFormLayout" name="statusForm"><item row="0" column="0"><widget class="QLabel" name="cameraStatusCaption"><property name="text"><string>Camera backend</string></property></widget></item><item row="0" column="1"><widget class="QLabel" name="cameraStatusLabel"><property name="text"><string>Synthetic camera ready</string></property></widget></item><item row="1" column="0"><widget class="QLabel" name="datasetCaption"><property name="text"><string>Focus dataset</string></property></widget></item><item row="1" column="1"><widget class="QLabel" name="datasetStatusLabel"><property name="text"><string>Not selected</string></property></widget></item><item row="2" column="0"><widget class="QLabel" name="runCaption"><property name="text"><string>Active run</string></property></widget></item><item row="2" column="1"><widget class="QLabel" name="runStatusLabel"><property name="text"><string>None</string></property></widget></item><item row="3" column="0"><widget class="QLabel" name="safetyCaption"><property name="text"><string>Motion</string></property></widget></item><item row="3" column="1"><widget class="QLabel" name="safetyLabel"><property name="text"><string>Simulation only; physical commands unavailable</string></property></widget></item></layout></widget></item>
-        <item><widget class="QGroupBox" name="recentGroup"><property name="title"><string>Recent result and project notes</string></property><layout class="QVBoxLayout" name="recentLayout"><item><widget class="QPlainTextEdit" name="dashboardResults"><property name="readOnly"><bool>true</bool></property><property name="plainText"><string>Connect to the local server to retrieve status. Synthetic images are demonstration data and do not represent Basler camera measurements.</string></property></widget></item></layout></widget></item>
-        <item><spacer name="dashboardSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>30</height></size></property></spacer></item>
+        <item>
+         <widget class="QLabel" name="dashboardTitle">
+          <property name="styleSheet">
+           <string>font-size:20pt;font-weight:bold;padding:12px;</string>
+          </property>
+          <property name="text">
+           <string>Offline visual training prototype</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="telemetryPanelsLayout">
+          <item>
+           <widget class="QGroupBox" name="poseFeedbackGroup">
+            <property name="title"><string>Pose (X/Y/Z mm · RX/RY/RZ deg)</string></property>
+            <layout class="QVBoxLayout" name="poseFeedbackLayout">
+             <item><widget class="QLabel" name="poseSourceLabel"><property name="text"><string>SIMULATED · no GMRT provider configured</string></property></widget></item>
+             <item><layout class="QGridLayout" name="poseAxisGrid">
+              <item row="0" column="0"><widget class="QLabel" name="poseAxisLabelX"><property name="text"><string>X</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="0" column="1"><widget class="QLabel" name="poseAxisLabelY"><property name="text"><string>Y</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="0" column="2"><widget class="QLabel" name="poseAxisLabelZ"><property name="text"><string>Z</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="0" column="3"><widget class="QLabel" name="poseAxisLabelRX"><property name="text"><string>RX</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="0" column="4"><widget class="QLabel" name="poseAxisLabelRY"><property name="text"><string>RY</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="0" column="5"><widget class="QLabel" name="poseAxisLabelRZ"><property name="text"><string>RZ</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="1" column="0"><widget class="QLabel" name="poseValueX"><property name="minimumSize"><size><width>96</width><height>28</height></size></property><property name="maximumSize"><size><width>110</width><height>16777215</height></size></property><property name="text"><string>0.000000</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="1" column="1"><widget class="QLabel" name="poseValueY"><property name="minimumSize"><size><width>96</width><height>28</height></size></property><property name="maximumSize"><size><width>110</width><height>16777215</height></size></property><property name="text"><string>0.000000</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="1" column="2"><widget class="QLabel" name="poseValueZ"><property name="minimumSize"><size><width>96</width><height>28</height></size></property><property name="maximumSize"><size><width>110</width><height>16777215</height></size></property><property name="text"><string>0.000000</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="1" column="3"><widget class="QLabel" name="poseValueRX"><property name="minimumSize"><size><width>96</width><height>28</height></size></property><property name="maximumSize"><size><width>110</width><height>16777215</height></size></property><property name="text"><string>0.000000</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="1" column="4"><widget class="QLabel" name="poseValueRY"><property name="minimumSize"><size><width>96</width><height>28</height></size></property><property name="maximumSize"><size><width>110</width><height>16777215</height></size></property><property name="text"><string>0.000000</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="1" column="5"><widget class="QLabel" name="poseValueRZ"><property name="minimumSize"><size><width>96</width><height>28</height></size></property><property name="maximumSize"><size><width>110</width><height>16777215</height></size></property><property name="text"><string>0.000000</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+             </layout></item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QGroupBox" name="rawCountGroup">
+            <property name="title"><string>Raw Counts (Axis)</string></property>
+            <layout class="QVBoxLayout" name="rawCountLayout">
+             <item><widget class="QLabel" name="countSourceLabel"><property name="text"><string>UNAVAILABLE · no encoder-count provider</string></property></widget></item>
+             <item><layout class="QGridLayout" name="rawCountAxisGrid">
+              <item row="0" column="0"><widget class="QLabel" name="countAxisLabel1"><property name="text"><string>X</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="0" column="1"><widget class="QLabel" name="countAxisLabel2"><property name="text"><string>Y</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="0" column="2"><widget class="QLabel" name="countAxisLabel3"><property name="text"><string>Z</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="0" column="3"><widget class="QLabel" name="countAxisLabel4"><property name="text"><string>RX</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="0" column="4"><widget class="QLabel" name="countAxisLabel5"><property name="text"><string>RY</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="0" column="5"><widget class="QLabel" name="countAxisLabel6"><property name="text"><string>RZ</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="1" column="0"><widget class="QLabel" name="countValueX"><property name="minimumSize"><size><width>76</width><height>28</height></size></property><property name="maximumSize"><size><width>90</width><height>16777215</height></size></property><property name="text"><string>—</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="1" column="1"><widget class="QLabel" name="countValueY"><property name="minimumSize"><size><width>76</width><height>28</height></size></property><property name="maximumSize"><size><width>90</width><height>16777215</height></size></property><property name="text"><string>—</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="1" column="2"><widget class="QLabel" name="countValueZ"><property name="minimumSize"><size><width>76</width><height>28</height></size></property><property name="maximumSize"><size><width>90</width><height>16777215</height></size></property><property name="text"><string>—</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="1" column="3"><widget class="QLabel" name="countValueRX"><property name="minimumSize"><size><width>76</width><height>28</height></size></property><property name="maximumSize"><size><width>90</width><height>16777215</height></size></property><property name="text"><string>—</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="1" column="4"><widget class="QLabel" name="countValueRY"><property name="minimumSize"><size><width>76</width><height>28</height></size></property><property name="maximumSize"><size><width>90</width><height>16777215</height></size></property><property name="text"><string>—</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+              <item row="1" column="5"><widget class="QLabel" name="countValueRZ"><property name="minimumSize"><size><width>76</width><height>28</height></size></property><property name="maximumSize"><size><width>90</width><height>16777215</height></size></property><property name="text"><string>—</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+             </layout></item>
+            </layout>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="statusGroup">
+          <property name="title">
+           <string>System status</string>
+          </property>
+          <layout class="QFormLayout" name="statusForm">
+           <item row="0" column="0">
+            <widget class="QLabel" name="cameraStatusCaption">
+             <property name="text">
+              <string>Camera backend</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLabel" name="cameraStatusLabel">
+             <property name="text">
+              <string>Synthetic camera ready</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="datasetCaption">
+             <property name="text">
+              <string>Focus dataset</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QLabel" name="datasetStatusLabel">
+             <property name="text">
+              <string>Not selected</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="runCaption">
+             <property name="text">
+              <string>Active run</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QLabel" name="runStatusLabel">
+             <property name="text">
+              <string>None</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="safetyCaption">
+             <property name="text">
+              <string>Motion</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="QLabel" name="safetyLabel">
+             <property name="text">
+              <string>Simulation only; physical commands unavailable</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="recentGroup">
+          <property name="title">
+           <string>Recent result and project notes</string>
+          </property>
+          <layout class="QVBoxLayout" name="recentLayout">
+           <item>
+            <widget class="QPlainTextEdit" name="dashboardResults">
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+             <property name="plainText">
+              <string>Connect to the local server to retrieve status. Synthetic images are demonstration data and do not represent Basler camera measurements.</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <spacer name="dashboardSpacer">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>30</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="cameraTab"><attribute name="title"><string>Live Camera</string></attribute>
+      <widget class="QWidget" name="cameraTab">
+       <attribute name="title">
+        <string>Live Camera</string>
+       </attribute>
        <layout class="QVBoxLayout" name="cameraLayout">
-        <item><layout class="QHBoxLayout" name="previewLayout"><item><widget class="QLabel" name="previewTop"><property name="minimumSize"><size><width>320</width><height>240</height></size></property><property name="text"><string>Top camera preview</string></property><property name="alignment"><set>Qt::AlignCenter</set></property><property name="scaledContents"><bool>false</bool></property></widget></item><item><widget class="QLabel" name="previewSide"><property name="minimumSize"><size><width>320</width><height>240</height></size></property><property name="text"><string>Side camera preview</string></property><property name="alignment"><set>Qt::AlignCenter</set></property><property name="scaledContents"><bool>false</bool></property></widget></item></layout></item>
-        <item><layout class="QHBoxLayout" name="cameraControls"><item><widget class="QPushButton" name="startTopButton"><property name="text"><string>Start top preview</string></property></widget></item><item><widget class="QPushButton" name="startSideButton"><property name="text"><string>Start side preview</string></property></widget></item><item><widget class="QPushButton" name="stopCameraButton"><property name="text"><string>Stop previews</string></property></widget></item><item><widget class="QLabel" name="cameraInfoLabel"><property name="text"><string>160 × 120 synthetic grayscale · 2.5 fps</string></property></widget></item></layout></item>
-        <item><widget class="QLabel" name="cameraDisclaimer"><property name="text"><string>Basler exposure/gain and camera enumeration are not implemented in this prototype.</string></property></widget></item>
+        <item>
+         <layout class="QHBoxLayout" name="previewLayout">
+          <item>
+           <widget class="QLabel" name="previewTop">
+            <property name="minimumSize">
+             <size>
+              <width>320</width>
+              <height>240</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Top camera preview</string>
+            </property>
+            <property name="scaledContents">
+             <bool>false</bool>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="previewSide">
+            <property name="minimumSize">
+             <size>
+              <width>320</width>
+              <height>240</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Side camera preview</string>
+            </property>
+            <property name="scaledContents">
+             <bool>false</bool>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="cameraControls">
+          <item>
+           <widget class="QPushButton" name="startTopButton">
+            <property name="text">
+             <string>Start top preview</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="startSideButton">
+            <property name="text">
+             <string>Start side preview</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="stopCameraButton">
+            <property name="text">
+             <string>Stop previews</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="cameraInfoLabel">
+            <property name="text">
+             <string>160 × 120 synthetic grayscale · 2.5 fps</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QLabel" name="cameraDisclaimer">
+          <property name="text">
+           <string>Only the synthetic source is implemented. File imports are supported; Basler discovery, exposure, gain, and acquisition are unavailable.</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="cameraConfigurationLayout">
+          <item><widget class="QGroupBox" name="cameraRoleMappingGroup"><property name="title"><string>Camera status and role mapping</string></property><layout class="QFormLayout" name="cameraRoleMappingForm"><item row="0" column="0"><widget class="QLabel" name="cameraSourceCaption"><property name="text"><string>Source</string></property></widget></item><item row="0" column="1"><widget class="QLabel" name="cameraRoleStatusLabel"><property name="text"><string>Synthetic backend</string></property></widget></item><item row="1" column="0"><widget class="QLabel" name="topRoleCaption"><property name="text"><string>TOP logical role</string></property></widget></item><item row="1" column="1"><widget class="QLabel" name="topRoleMapping"><property name="text"><string>Legacy LEFT slot · serial unset</string></property></widget></item><item row="2" column="0"><widget class="QLabel" name="sideRoleCaption"><property name="text"><string>SIDE logical role</string></property></widget></item><item row="2" column="1"><widget class="QLabel" name="sideRoleMapping"><property name="text"><string>Legacy RIGHT slot · serial unset</string></property></widget></item></layout></widget></item>
+          <item><widget class="QGroupBox" name="cameraCalibrationGroup"><property name="title"><string>Camera calibration</string></property><layout class="QFormLayout" name="cameraCalibrationForm"><item row="0" column="0"><widget class="QLabel" name="calibrationStatusCaption"><property name="text"><string>Status</string></property></widget></item><item row="0" column="1"><widget class="QLabel" name="calibrationStatusLabel"><property name="text"><string>UNCONFIGURED</string></property></widget></item><item row="1" column="0"><widget class="QLabel" name="calibrationNameCaption"><property name="text"><string>Calibration record</string></property></widget></item><item row="1" column="1"><widget class="QLineEdit" name="calibrationNameEdit"><property name="placeholderText"><string>Not loaded</string></property></widget></item><item row="2" column="0" colspan="2"><widget class="QLabel" name="calibrationWarningLabel"><property name="text"><string>No physical scale or mm/degree transform is assumed.</string></property></widget></item></layout></widget></item>
+         </layout>
+        </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="focusTab"><attribute name="title"><string>Focus Training</string></attribute>
+      <widget class="QWidget" name="focusTab">
+       <attribute name="title">
+        <string>Focus Training</string>
+       </attribute>
        <layout class="QVBoxLayout" name="focusLayout">
-        <item><widget class="QGroupBox" name="focusDatasetGroup"><property name="title"><string>Dataset management</string></property><layout class="QGridLayout" name="focusDatasetLayout"><item row="0" column="0"><widget class="QLabel" name="focusDatasetCaption"><property name="text"><string>Dataset ID</string></property></widget></item><item row="0" column="1"><widget class="QLineEdit" name="focusDatasetEdit"><property name="text"><string>focus_demo</string></property></widget></item><item row="0" column="2"><widget class="QPushButton" name="createFocusDatasetButton"><property name="text"><string>Create synthetic dataset</string></property></widget></item><item row="1" column="0"><widget class="QLabel" name="focusImageCaption"><property name="text"><string>Sample filename</string></property></widget></item><item row="1" column="1"><widget class="QLineEdit" name="focusImageEdit"><property name="text"><string>sample_0000.pgm</string></property></widget></item><item row="1" column="2"><widget class="QComboBox" name="focusLabelCombo"><item><property name="text"><string>sharp</string></property></item><item><property name="text"><string>blurred</string></property></item></widget></item><item row="2" column="1"><widget class="QPushButton" name="labelFocusButton"><property name="text"><string>Set label</string></property></widget></item><item row="2" column="2"><widget class="QPushButton" name="scoreFocusButton"><property name="text"><string>Score selected image</string></property></widget></item><item row="2" column="3"><widget class="QPushButton" name="captureFocusButton"><property name="text"><string>Capture sample</string></property></widget></item><item row="2" column="4"><widget class="QPushButton" name="importFocusButton"><property name="text"><string>Import image folder</string></property></widget></item></layout></widget></item>
-        <item><widget class="QGroupBox" name="focusTrainingGroup"><property name="title"><string>CPU focus classification · logistic regression on image statistics</string></property><layout class="QGridLayout" name="focusTrainingLayout"><item row="0" column="0"><widget class="QLabel" name="focusEpochLabel"><property name="text"><string>Epochs</string></property></widget></item><item row="0" column="1"><widget class="QSpinBox" name="focusEpochSpin"><property name="maximum"><number>300</number></property><property name="minimum"><number>1</number></property><property name="value"><number>20</number></property></widget></item><item row="0" column="2"><widget class="QLabel" name="focusLearningRateLabel"><property name="text"><string>Learning rate</string></property></widget></item><item row="0" column="3"><widget class="QDoubleSpinBox" name="focusLearningRateSpin"><property name="decimals"><number>3</number></property><property name="maximum"><double>1.000000000000000</double></property><property name="minimum"><double>0.001000000000000</double></property><property name="singleStep"><double>0.010000000000000</double></property><property name="value"><double>0.050000000000000</double></property></widget></item><item row="0" column="4"><widget class="QPushButton" name="startFocusTrainingButton"><property name="text"><string>Start focus training</string></property></widget></item><item row="0" column="5"><widget class="QPushButton" name="cancelFocusTrainingButton"><property name="text"><string>Cancel</string></property></widget></item><item row="1" column="0" colspan="6"><widget class="QProgressBar" name="focusProgressBar"><property name="value"><number>0</number></property></widget></item><item row="2" column="0" colspan="6"><widget class="LossChartWidget" name="focusLossChart"/></item><item row="3" column="0" colspan="6"><widget class="QLabel" name="focusMetricsLabel"><property name="text"><string>Epoch: — · Train loss: — · Validation loss: — · Accuracy: —</string></property></widget></item><item row="4" column="0" colspan="6"><widget class="QPlainTextEdit" name="focusLog"><property name="maximumBlockCount"><number>1000</number></property><property name="readOnly"><bool>true</bool></property></widget></item></layout></widget></item>
+        <item>
+         <widget class="QGroupBox" name="focusDatasetGroup">
+          <property name="title">
+           <string>Dataset management</string>
+          </property>
+          <layout class="QGridLayout" name="focusDatasetLayout">
+           <item row="0" column="0">
+            <widget class="QLabel" name="focusDatasetCaption">
+             <property name="text">
+              <string>Dataset ID</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLineEdit" name="focusDatasetEdit">
+             <property name="text">
+              <string>focus_demo</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <widget class="QPushButton" name="createFocusDatasetButton">
+             <property name="text">
+              <string>Create synthetic dataset</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="focusImageCaption">
+             <property name="text">
+              <string>Sample filename</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QLineEdit" name="focusImageEdit">
+             <property name="text">
+              <string>sample_0000.pgm</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="2">
+            <widget class="QComboBox" name="focusLabelCombo">
+             <item>
+              <property name="text">
+               <string>sharp</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>blurred</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QPushButton" name="labelFocusButton">
+             <property name="text">
+              <string>Set label</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="2">
+            <widget class="QPushButton" name="scoreFocusButton">
+             <property name="text">
+              <string>Score selected image</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="3">
+            <widget class="QPushButton" name="captureFocusButton">
+             <property name="text">
+              <string>Capture sample</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="4">
+            <widget class="QPushButton" name="importFocusButton">
+             <property name="text">
+              <string>Import image folder</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="focusTrainingGroup">
+          <property name="title">
+           <string>Focus model training and checkpoint control</string>
+          </property>
+          <layout class="QGridLayout" name="focusTrainingLayout">
+           <item row="0" column="0">
+            <widget class="QLabel" name="focusEpochLabel">
+             <property name="text">
+              <string>Epochs</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QSpinBox" name="focusEpochSpin">
+             <property name="minimum">
+              <number>1</number>
+             </property>
+             <property name="maximum">
+              <number>300</number>
+             </property>
+             <property name="value">
+              <number>20</number>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <widget class="QLabel" name="focusLearningRateLabel">
+             <property name="text">
+              <string>Learning rate</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="3">
+            <widget class="QDoubleSpinBox" name="focusLearningRateSpin">
+             <property name="decimals">
+              <number>6</number>
+             </property>
+             <property name="minimum">
+              <double>0.000001000000000</double>
+             </property>
+             <property name="maximum">
+              <double>0.100000000000000</double>
+             </property>
+             <property name="singleStep">
+              <double>0.000100000000000</double>
+             </property>
+             <property name="value">
+              <double>0.000100000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="4">
+            <widget class="QPushButton" name="startFocusTrainingButton">
+             <property name="text">
+              <string>Start focus training</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="5">
+            <widget class="QPushButton" name="cancelFocusTrainingButton">
+             <property name="text">
+              <string>Cancel</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0" colspan="6">
+            <layout class="QHBoxLayout" name="focusModelParametersLayout">
+             <item><widget class="QLabel" name="focusBatchLabel"><property name="text"><string>Batch size</string></property></widget></item>
+             <item><widget class="QSpinBox" name="focusBatchSizeSpin"><property name="minimum"><number>1</number></property><property name="maximum"><number>256</number></property><property name="value"><number>8</number></property></widget></item>
+             <item><widget class="QLabel" name="focusArchitectureLabel"><property name="text"><string>Architecture</string></property></widget></item>
+             <item><widget class="QComboBox" name="focusArchitectureCombo"><item><property name="text"><string>MobileNetV3-Small · ImageNet pretrained</string></property></item><item><property name="text"><string>Statistical offline baseline · not pretrained</string></property></item></widget></item>
+             <item><widget class="QComboBox" name="focusDeviceCombo"><item><property name="text"><string>CPU</string></property></item><item><property name="text"><string>CUDA</string></property></item></widget></item>
+             <item><widget class="QLineEdit" name="focusModelNameEdit"><property name="placeholderText"><string>Checkpoint name</string></property><property name="text"><string>focus_mobilenet</string></property></widget></item>
+            </layout>
+           </item>
+           <item row="2" column="0" colspan="6">
+            <widget class="QProgressBar" name="focusProgressBar">
+             <property name="value">
+              <number>0</number>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0" colspan="6">
+            <widget class="LossChartWidget" name="focusLossChart" native="true"/>
+           </item>
+           <item row="4" column="0" colspan="6">
+            <widget class="QLabel" name="focusMetricsLabel">
+             <property name="text">
+              <string>Epoch: — · Train loss: — · Validation loss: — · Accuracy: —</string>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="0" colspan="6">
+            <widget class="QLabel" name="focusCheckpointLabel"><property name="text"><string>Best checkpoint: none</string></property></widget>
+           </item>
+           <item row="6" column="0" colspan="6">
+            <widget class="QPlainTextEdit" name="focusLog">
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+             <property name="maximumBlockCount">
+              <number>1000</number>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="focusInferenceGroup">
+          <property name="title"><string>Focus checkpoint and image inference</string></property>
+          <layout class="QHBoxLayout" name="focusInferenceLayout">
+           <item><widget class="QLineEdit" name="focusInferenceCheckpointEdit"><property name="placeholderText"><string>Checkpoint filename from saved run</string></property></widget></item>
+           <item><widget class="QPushButton" name="focusInferenceButton"><property name="text"><string>Run focus inference</string></property></widget></item>
+           <item><widget class="QLabel" name="focusInferenceLabel"><property name="text"><string>Inference result unavailable</string></property></widget></item>
+           <item><widget class="QLabel" name="focusInferencePreview"><property name="minimumSize"><size><width>180</width><height>120</height></size></property><property name="text"><string>Image preview</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+          </layout>
+         </widget>
+        </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="fauTab"><attribute name="title"><string>FAU Training</string></attribute>
+      <widget class="QWidget" name="fauTab">
+       <attribute name="title">
+        <string>FAU Training</string>
+       </attribute>
        <layout class="QVBoxLayout" name="fauLayout">
-        <item><widget class="QGroupBox" name="fauAnnotationGroup"><property name="title"><string>Image and keypoint annotation (pixel coordinates)</string></property><layout class="QGridLayout" name="fauAnnotationLayout"><item row="0" column="0"><widget class="QLabel" name="fauDatasetCaption"><property name="text"><string>Dataset ID</string></property></widget></item><item row="0" column="1"><widget class="QLineEdit" name="fauDatasetEdit"><property name="text"><string>fau_demo</string></property></widget></item><item row="0" column="2"><widget class="QPushButton" name="createFauDatasetButton"><property name="text"><string>Create synthetic image set</string></property></widget></item><item row="1" column="0"><widget class="QLabel" name="fauImageCaption"><property name="text"><string>Image</string></property></widget></item><item row="1" column="1"><widget class="QLineEdit" name="fauImageEdit"><property name="text"><string>sample_0000.pgm</string></property></widget></item><item row="1" column="2"><widget class="QComboBox" name="fauRoleCombo"><item><property name="text"><string>top</string></property></item><item><property name="text"><string>side</string></property></item></widget></item><item row="2" column="0"><widget class="QLabel" name="fauFeatureCaption"><property name="text"><string>Feature ID, x, y</string></property></widget></item><item row="2" column="1"><widget class="QLineEdit" name="fauFeatureIdEdit"><property name="text"><string>TOP_DX</string></property></widget></item><item row="2" column="2"><widget class="QDoubleSpinBox" name="fauXSpin"><property name="maximum"><double>10000.000000000000000</double></property><property name="value"><double>80.000000000000000</double></property></widget></item><item row="2" column="3"><widget class="QDoubleSpinBox" name="fauYSpin"><property name="maximum"><double>10000.000000000000000</double></property><property name="value"><double>60.000000000000000</double></property></widget></item><item row="3" column="0"><widget class="QLabel" name="fauRoiCaption"><property name="text"><string>ROI x, y, width, height</string></property></widget></item><item row="3" column="1"><widget class="QSpinBox" name="roiXSpin"><property name="maximum"><number>10000</number></property></widget></item><item row="3" column="2"><widget class="QSpinBox" name="roiYSpin"><property name="maximum"><number>10000</number></property></widget></item><item row="3" column="3"><widget class="QSpinBox" name="roiWidthSpin"><property name="maximum"><number>10000</number></property><property name="value"><number>160</number></property></widget></item><item row="3" column="4"><widget class="QSpinBox" name="roiHeightSpin"><property name="maximum"><number>10000</number></property><property name="value"><number>120</number></property></widget></item><item row="4" column="1"><widget class="QPushButton" name="saveFauAnnotationButton"><property name="text"><string>Save annotation</string></property></widget></item><item row="4" column="2"><widget class="QPushButton" name="startFauTrainingButton"><property name="text"><string>Validate baseline run</string></property></widget></item><item row="4" column="3"><widget class="QPushButton" name="cancelFauTrainingButton"><property name="text"><string>Cancel</string></property></widget></item></layout></widget></item>
-        <item><widget class="QLabel" name="fauDisclaimer"><property name="text"><string>FAU_DX/DY/ANG channels are reference concepts. Current baseline validates saved keypoints only; no calibrated mm/degree transform exists.</string></property></widget></item>
-        <item><widget class="QPlainTextEdit" name="fauOutput"><property name="readOnly"><bool>true</bool></property></widget></item>
+        <item>
+         <widget class="QGroupBox" name="fauAnnotationGroup">
+          <property name="title">
+           <string>FAU dataset annotation and camera ROI limits (pixel coordinates)</string>
+          </property>
+          <layout class="QGridLayout" name="fauAnnotationLayout">
+           <item row="0" column="0">
+            <widget class="QLabel" name="fauDatasetCaption">
+             <property name="text">
+              <string>Dataset ID</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLineEdit" name="fauDatasetEdit">
+             <property name="text">
+              <string>fau_demo</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <widget class="QPushButton" name="createFauDatasetButton">
+             <property name="text">
+              <string>Create synthetic image set</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="fauImageCaption">
+             <property name="text">
+              <string>Image</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QLineEdit" name="fauImageEdit">
+             <property name="text">
+              <string>sample_0000.pgm</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="2">
+            <widget class="QComboBox" name="fauRoleCombo">
+             <item>
+              <property name="text">
+               <string>top</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>side</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="fauFeatureCaption">
+             <property name="text">
+              <string>Feature ID, x, y</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QLineEdit" name="fauFeatureIdEdit">
+             <property name="text">
+              <string>TOP_DX</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="2">
+            <widget class="QDoubleSpinBox" name="fauXSpin">
+             <property name="maximum">
+              <double>10000.000000000000000</double>
+             </property>
+             <property name="value">
+              <double>80.000000000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="3">
+            <widget class="QDoubleSpinBox" name="fauYSpin">
+             <property name="maximum">
+              <double>10000.000000000000000</double>
+             </property>
+             <property name="value">
+              <double>60.000000000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="fauRoiCaption">
+             <property name="text">
+              <string>ROI x, y, width, height</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="QSpinBox" name="roiXSpin">
+             <property name="maximum">
+              <number>10000</number>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="2">
+            <widget class="QSpinBox" name="roiYSpin">
+             <property name="maximum">
+              <number>10000</number>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="3">
+            <widget class="QSpinBox" name="roiWidthSpin">
+             <property name="maximum">
+              <number>10000</number>
+             </property>
+             <property name="value">
+              <number>160</number>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="4">
+            <widget class="QSpinBox" name="roiHeightSpin">
+             <property name="maximum">
+              <number>10000</number>
+             </property>
+             <property name="value">
+              <number>120</number>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="1">
+            <widget class="QPushButton" name="saveFauAnnotationButton">
+             <property name="text">
+              <string>Save annotation</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="2"><widget class="QComboBox" name="fauSplitCombo"><item><property name="text"><string>train</string></property></item><item><property name="text"><string>validation</string></property></item><item><property name="text"><string>test</string></property></item></widget></item>
+           <item row="4" column="3"><widget class="QPushButton" name="setFauSplitButton"><property name="text"><string>Set image split</string></property></widget></item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="fauTrainingGroup">
+          <property name="title"><string>FAU keypoint model · ResNet18 encoder with heatmap decoder</string></property>
+          <layout class="QGridLayout" name="fauTrainingLayout">
+           <item row="0" column="0"><widget class="QLabel" name="fauArchitectureLabel"><property name="text"><string>Architecture</string></property></widget></item>
+           <item row="0" column="1"><widget class="QComboBox" name="fauArchitectureCombo"><item><property name="text"><string>ResNet18 · ImageNet pretrained</string></property></item><item><property name="text"><string>Gradient-centroid offline baseline</string></property></item></widget></item>
+           <item row="0" column="2"><widget class="QLabel" name="fauTrainingRoleLabel"><property name="text"><string>Camera role</string></property></widget></item>
+           <item row="0" column="3"><widget class="QComboBox" name="fauTrainingRoleCombo"><item><property name="text"><string>top</string></property></item><item><property name="text"><string>side</string></property></item></widget></item>
+           <item row="0" column="4"><widget class="QLabel" name="fauDeviceLabel"><property name="text"><string>Device</string></property></widget></item>
+           <item row="0" column="5"><widget class="QComboBox" name="fauDeviceCombo"><item><property name="text"><string>CPU</string></property></item><item><property name="text"><string>CUDA</string></property></item></widget></item>
+           <item row="1" column="0"><widget class="QLabel" name="fauEpochLabel"><property name="text"><string>Epochs</string></property></widget></item>
+           <item row="1" column="1"><widget class="QSpinBox" name="fauEpochSpin"><property name="minimum"><number>1</number></property><property name="maximum"><number>300</number></property><property name="value"><number>30</number></property></widget></item>
+           <item row="1" column="2"><widget class="QLabel" name="fauBatchLabel"><property name="text"><string>Batch size</string></property></widget></item>
+           <item row="1" column="3"><widget class="QSpinBox" name="fauBatchSizeSpin"><property name="minimum"><number>1</number></property><property name="maximum"><number>128</number></property><property name="value"><number>4</number></property></widget></item>
+           <item row="1" column="4"><widget class="QLabel" name="fauLearningRateLabel"><property name="text"><string>Learning rate</string></property></widget></item>
+           <item row="1" column="5"><widget class="QDoubleSpinBox" name="fauLearningRateSpin"><property name="decimals"><number>6</number></property><property name="minimum"><double>0.000001000000000</double></property><property name="maximum"><double>0.100000000000000</double></property><property name="singleStep"><double>0.000100000000000</double></property><property name="value"><double>0.000100000000000</double></property></widget></item>
+           <item row="2" column="0"><widget class="QLabel" name="fauModelNameLabel"><property name="text"><string>Checkpoint name</string></property></widget></item>
+           <item row="2" column="1" colspan="2"><widget class="QLineEdit" name="fauModelNameEdit"><property name="text"><string>fau_resnet18</string></property></widget></item>
+           <item row="2" column="3"><widget class="QPushButton" name="startFauTrainingButton"><property name="text"><string>Start FAU training</string></property></widget></item>
+           <item row="2" column="4"><widget class="QPushButton" name="cancelFauTrainingButton"><property name="text"><string>Cancel</string></property></widget></item>
+           <item row="3" column="0" colspan="6"><widget class="QProgressBar" name="fauProgressBar"><property name="value"><number>0</number></property></widget></item>
+           <item row="4" column="0" colspan="6"><widget class="LossChartWidget" name="fauLossChart" native="true"/></item>
+           <item row="5" column="0" colspan="6"><widget class="QLabel" name="fauMetricsLabel"><property name="text"><string>Epoch: — · Validation loss: — · Mean pixel error: —</string></property></widget></item>
+           <item row="6" column="0" colspan="6"><widget class="QLabel" name="fauCheckpointLabel"><property name="text"><string>Best checkpoint: none</string></property></widget></item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="fauInferenceGroup">
+          <property name="title"><string>Checkpoint detection preview and pixel-space overlay</string></property>
+          <layout class="QHBoxLayout" name="fauInferenceLayout">
+           <item><widget class="QLineEdit" name="fauInferenceCheckpointEdit"><property name="placeholderText"><string>Checkpoint filename from saved run</string></property></widget></item>
+           <item><widget class="QPushButton" name="fauInferenceButton"><property name="text"><string>Run FAU inference</string></property></widget></item>
+           <item><widget class="QLabel" name="fauInferenceLabel"><property name="text"><string>No detections loaded</string></property></widget></item>
+           <item><widget class="QLabel" name="fauInferencePreview"><property name="minimumSize"><size><width>260</width><height>180</height></size></property><property name="text"><string>TOP/SIDE overlay preview</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="fauDisclaimer">
+          <property name="text">
+           <string>Save labeled images in both train and validation splits for ResNet18. TOP_DX/DY/ANG and SIDE_DX/DY/ANG remain pixel-space labels; no calibrated mm/degree transform is loaded.</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPlainTextEdit" name="fauOutput">
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="resultsTab"><attribute name="title"><string>Training Results</string></attribute><layout class="QVBoxLayout" name="resultsLayout"><item><widget class="QPushButton" name="refreshRunsButton"><property name="text"><string>Refresh saved runs</string></property></widget></item><item><widget class="QPlainTextEdit" name="resultsOutput"><property name="readOnly"><bool>true</bool></property></widget></item></layout></widget>
-      <widget class="QWidget" name="motionTab"><attribute name="title"><string>Motion Limits (Simulation)</string></attribute><layout class="QVBoxLayout" name="motionLayout"><item><widget class="QLabel" name="motionWarning"><property name="text"><string>DEMO ONLY. Server-side validation is active. Physical motion commands and hardware libraries are absent.</string></property><property name="styleSheet"><string>font-weight:bold;color:#ffb454;padding:6px;</string></property></widget></item><item><widget class="QTableWidget" name="motionTable"><property name="rowCount"><number>6</number></property><property name="columnCount"><number>8</number></property><column><property name="text"><string>Axis</string></property></column><column><property name="text"><string>Unit</string></property></column><column><property name="text"><string>Minimum</string></property></column><column><property name="text"><string>Maximum</string></property></column><column><property name="text"><string>Excursion</string></property></column><column><property name="text"><string>Max step</string></property></column><column><property name="text"><string>Max speed</string></property></column><column><property name="text"><string>Max load</string></property></column></widget></item><item><layout class="QHBoxLayout" name="motionSaveLayout"><item><widget class="QPushButton" name="loadLimitsButton"><property name="text"><string>Load saved limits</string></property></widget></item><item><widget class="QPushButton" name="validateLimitsButton"><property name="text"><string>Validate</string></property></widget></item><item><widget class="QPushButton" name="saveLimitsButton"><property name="text"><string>Save limits</string></property></widget></item></layout></item><item><widget class="QGroupBox" name="motionSimulationGroup"><property name="title"><string>Simulated move request</string></property><layout class="QHBoxLayout" name="motionSimulationLayout"><item><widget class="QComboBox" name="motionAxisCombo"><item><property name="text"><string>X</string></property></item><item><property name="text"><string>Y</string></property></item><item><property name="text"><string>Z</string></property></item><item><property name="text"><string>RX</string></property></item><item><property name="text"><string>RY</string></property></item><item><property name="text"><string>RZ</string></property></item></widget></item><item><widget class="QDoubleSpinBox" name="motionTargetSpin"><property name="minimum"><double>-100.000000000000000</double></property><property name="maximum"><double>100.000000000000000</double></property><property name="decimals"><number>3</number></property></widget></item><item><widget class="QDoubleSpinBox" name="motionSpeedSpin"><property name="minimum"><double>0.001000000000000</double></property><property name="maximum"><double>100.000000000000000</double></property><property name="value"><double>0.100000000000000</double></property></widget></item><item><widget class="QPushButton" name="simulateMotionButton"><property name="text"><string>Validate simulated request</string></property></widget></item><item><widget class="QLabel" name="simulatedPositionLabel"><property name="text"><string>All simulated positions: zero</string></property></widget></item></layout></widget></item><item><spacer name="motionSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>20</height></size></property></spacer></item></layout></widget>
-      <widget class="QWidget" name="logsTab"><attribute name="title"><string>Logs</string></attribute><layout class="QVBoxLayout" name="logsLayout"><item><widget class="QPlainTextEdit" name="logOutput"><property name="readOnly"><bool>true</bool></property></widget></item></layout></widget>
+      <widget class="QWidget" name="resultsTab">
+       <attribute name="title">
+        <string>Training Results</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="resultsLayout">
+        <item>
+         <widget class="QPushButton" name="refreshRunsButton">
+          <property name="text">
+           <string>Refresh saved runs</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="evaluationControlsLayout">
+          <item><widget class="QLineEdit" name="evaluationRunIdEdit"><property name="placeholderText"><string>Run ID (filled from latest completion)</string></property></widget></item>
+          <item><widget class="QPushButton" name="evaluateFocusButton"><property name="text"><string>Show focus validation result</string></property></widget></item>
+          <item><widget class="QPushButton" name="evaluateFauButton"><property name="text"><string>Show FAU validation result</string></property></widget></item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QPlainTextEdit" name="resultsOutput">
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="motionTab">
+       <attribute name="title">
+        <string>Motion Limits (Simulation)</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="motionLayout">
+        <item>
+         <widget class="QLabel" name="motionWarning">
+          <property name="styleSheet">
+           <string>font-weight:bold;color:#ffb454;padding:6px;</string>
+          </property>
+          <property name="text">
+           <string>DEMO ONLY. Server-side validation is active. Physical motion commands and hardware libraries are absent.</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QTableWidget" name="motionTable">
+          <property name="rowCount">
+           <number>6</number>
+          </property>
+          <property name="columnCount">
+           <number>8</number>
+          </property>
+          <row/>
+          <row/>
+          <row/>
+          <row/>
+          <row/>
+          <row/>
+          <column>
+           <property name="text">
+            <string>Axis</string>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>Unit</string>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>Minimum</string>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>Maximum</string>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>Excursion</string>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>Max step</string>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>Max speed</string>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>Max load</string>
+           </property>
+          </column>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="motionSaveLayout">
+          <item>
+           <widget class="QPushButton" name="loadLimitsButton">
+            <property name="text">
+             <string>Load saved limits</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="validateLimitsButton">
+            <property name="text">
+             <string>Validate</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="saveLimitsButton">
+            <property name="text">
+             <string>Save limits</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="motionSimulationGroup">
+          <property name="title">
+           <string>Simulated move request</string>
+          </property>
+          <layout class="QHBoxLayout" name="motionSimulationLayout">
+           <item>
+            <widget class="QComboBox" name="motionAxisCombo">
+             <item>
+              <property name="text">
+               <string>X</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Y</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Z</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>RX</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>RY</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>RZ</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           <item>
+            <widget class="QDoubleSpinBox" name="motionTargetSpin">
+             <property name="decimals">
+              <number>3</number>
+             </property>
+             <property name="minimum">
+              <double>-100.000000000000000</double>
+             </property>
+             <property name="maximum">
+              <double>100.000000000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QDoubleSpinBox" name="motionSpeedSpin">
+             <property name="minimum">
+              <double>0.000000000000000</double>
+             </property>
+             <property name="maximum">
+              <double>100.000000000000000</double>
+             </property>
+             <property name="value">
+              <double>0.100000000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="simulateMotionButton">
+             <property name="text">
+              <string>Validate simulated request</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="simulatedPositionLabel">
+             <property name="text">
+              <string>All simulated positions: zero</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <spacer name="motionSpacer">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="logsTab">
+       <attribute name="title">
+        <string>Logs</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="logsLayout">
+        <item>
+         <widget class="QLabel" name="logsTabExplanation"><property name="text"><string>Live server, dataset, camera, worker, and validation messages remain visible in the central log panel below the tabs.</string></property><property name="wordWrap"><bool>true</bool></property></widget>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+    <item>
+     <widget class="QGroupBox" name="centralLogGroup">
+      <property name="maximumSize"><size><width>16777215</width><height>150</height></size></property>
+      <property name="title"><string>Training and server log</string></property>
+      <layout class="QVBoxLayout" name="centralLogLayout">
+       <item><widget class="QPlainTextEdit" name="logOutput"><property name="maximumBlockCount"><number>1000</number></property><property name="readOnly"><bool>true</bool></property></widget></item>
+      </layout>
      </widget>
     </item>
    </layout>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
- <customwidgets><customwidget><class>LossChartWidget</class><extends>QWidget</extends><header>losschartwidget.h</header></customwidget></customwidgets>
+ <customwidgets>
+  <customwidget>
+   <class>LossChartWidget</class>
+   <extends>QWidget</extends>
+   <header>losschartwidget.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

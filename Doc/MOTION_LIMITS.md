@@ -1,5 +1,7 @@
 # Simulation-only motion limits
 
+The Dashboard mirrors the original pose/count hierarchy with fixed-alignment X/Y/Z/RX/RY/RZ fields. The pose source is labeled `SIMULATED`; raw counts are `UNAVAILABLE`. `IMotionFeedbackProvider` is the replaceable boundary for a future GMRT public API adapter. The server does not synthesize encoder counts or label them real.
+
 The UI edits six axes: X/Y/Z use millimeters; RX/RY/RZ use degrees. Each axis stores minimum, maximum, maximum excursion, maximum step, maximum requested speed, and maximum load. The server rejects missing/non-finite values, wrong units, invalid min/max ordering, nonpositive caps, excursion larger than the position span, out-of-envelope targets, excessive steps/speeds, and excessive load.
 
 Defaults are demonstration values and are not machine-specific physical limits. A nonempty machine profile and `simulation_only: true` are required. Limits persist to local ignored `config/motion_limits.json`. The simulator updates only an in-memory position vector. No physical move command, EtherCAT, serial, piezo, or servo code is present.

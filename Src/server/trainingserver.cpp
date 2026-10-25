@@ -1,4 +1,5 @@
 #include "trainingserver.h"
+#include "motion/SimulatedMotionFeedbackProvider.h"
 
 #include <QDateTime>
 #include <QBuffer>
@@ -24,6 +25,9 @@ TrainingServer::TrainingServer(const QString &projectRoot, QObject *parent)
     : QObject(parent), m_projectRoot(QFileInfo(projectRoot).absoluteFilePath())
 {
     m_workerScript = QDir(QCoreApplication::applicationDirPath()).absoluteFilePath("../../ML/workers/train.py");
+    auto simulatedProvider = std::make_unique<SimulatedMotionFeedbackProvider>();
+    m_simulatedMotionFeedback = simulatedProvider.get();
+    m_motionFeedback = std::move(simulatedProvider);
     QDir().mkpath(m_projectRoot + "/data/focus");
     QDir().mkpath(m_projectRoot + "/data/fau");
     QDir().mkpath(m_projectRoot + "/models/focus");
@@ -36,9 +40,6 @@ TrainingServer::TrainingServer(const QString &projectRoot, QObject *parent)
     }
     if (validateLimits(m_limits).size() > 0) {
         m_limits = defaultLimits();
-    }
-    for (const QString &axis : QStringList{QStringLiteral("X"), QStringLiteral("Y"), QStringLiteral("Z"), QStringLiteral("RX"), QStringLiteral("RY"), QStringLiteral("RZ")}) {
-        m_positions.insert(axis, 0.0);
     }
     m_previewTimer.setInterval(400);
     connect(&m_previewTimer, &QTimer::timeout, this, &TrainingServer::sendPreviewFrames);
@@ -206,7 +207,18 @@ QJsonObject TrainingServer::status() const
 {
     return {{"server", "ready"}, {"port", m_listener.serverPort()}, {"camera_backend", "synthetic"},
             {"training_state", m_worker ? "RUNNING" : "IDLE"}, {"active_run_id", m_activeRunId},
-            {"active_task", m_activeTask}, {"motion_mode", "simulation-only"}};
+            {"active_task", m_activeTask}, {"motion_mode", "simulation-only"},
+            {"motion_feedback", m_motionFeedback->ReadSnapshot().ToJson()}};
+}
+
+QJsonObject TrainingServer::poseMap() const
+{
+    const MotionFeedbackSnapshot snapshot = m_motionFeedback->ReadSnapshot();
+    const QStringList axes{QStringLiteral("X"), QStringLiteral("Y"), QStringLiteral("Z"),
+                           QStringLiteral("RX"), QStringLiteral("RY"), QStringLiteral("RZ")};
+    QJsonObject values;
+    for (qsizetype index = 0; index < axes.size(); ++index) values.insert(axes.at(index), snapshot.pose[static_cast<size_t>(index)]);
+    return values;
 }
 
 QJsonObject TrainingServer::defaultLimits() const
@@ -246,13 +258,15 @@ QString TrainingServer::validateLimits(const QJsonObject &limits) const
 QString TrainingServer::validateMotion(const QJsonObject &request) const
 {
     const QString axis = request.value("axis").toString();
-    if (!m_positions.contains(axis)) return "unknown axis";
+    const QStringList axes{QStringLiteral("X"), QStringLiteral("Y"), QStringLiteral("Z"),
+                           QStringLiteral("RX"), QStringLiteral("RY"), QStringLiteral("RZ")};
+    if (!axes.contains(axis)) return "unknown axis";
     if (!request.value("target").isDouble() || !request.value("speed").isDouble()) return "target and speed must be finite numbers";
     const double target = request.value("target").toDouble();
     const double speed = request.value("speed").toDouble();
     if (!std::isfinite(target) || !std::isfinite(speed)) return "target and speed must be finite numbers";
     const QJsonObject limits = m_limits.value("axes").toObject().value(axis).toObject();
-    const double current = m_positions.value(axis).toDouble();
+    const double current = m_motionFeedback->Position(axis);
     if (target < limits.value("min").toDouble() || target > limits.value("max").toDouble()) return "target is outside the configured position envelope";
     if (std::abs(target - current) > limits.value("max_excursion").toDouble()) return "requested excursion exceeds the configured maximum";
     if (std::abs(target - current) > limits.value("max_step").toDouble()) return "requested step exceeds the configured maximum";
@@ -357,7 +371,7 @@ void TrainingServer::processMessage(QTcpSocket *socket, const QJsonObject &messa
     if (command == "DATASET_LABEL" || command == "DATASET_SPLIT") {
         const QString kind = payload.value("kind").toString("focus"), id = payload.value("dataset").toString();
         const QString image = QFileInfo(payload.value("image").toString()).fileName();
-        if (kind != "focus" || !validId(id) || image.isEmpty()) { respond(socket, requestId, command, {}, false, "focus dataset ID and image filename are required"); return; }
+        if ((kind != "focus" && kind != "fau") || !validId(id) || image.isEmpty()) { respond(socket, requestId, command, {}, false, "dataset kind, ID, and image filename are required"); return; }
         const QString path = datasetPath(kind, id) + "/manifest.jsonl";
         QFile manifest(path);
         if (!manifest.open(QIODevice::ReadOnly | QIODevice::Text)) { respond(socket, requestId, command, {}, false, "dataset manifest not found"); return; }
@@ -368,6 +382,7 @@ void TrainingServer::processMessage(QTcpSocket *socket, const QJsonObject &messa
         for (QJsonObject &row : rows) if (row.value("image").toString() == image) {
             if (command == "DATASET_LABEL") {
                 const QString label = payload.value("label").toString();
+                if (kind != "focus") { respond(socket, requestId, command, {}, false, "focus labels can only be assigned to focus datasets"); return; }
                 if (label != "sharp" && label != "blurred") { respond(socket, requestId, command, {}, false, "focus label must be sharp or blurred"); return; }
                 row.insert("label", label);
             } else {
@@ -426,11 +441,16 @@ void TrainingServer::processMessage(QTcpSocket *socket, const QJsonObject &messa
         }
         QJsonObject annotation{{"image", filename}, {"role", role},
                                {"roi", roi}, {"features", features},
+                               {"image_width", image.width()}, {"image_height", image.height()},
                                {"schema_version", 1}, {"timestamp", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)}};
         QFile file(path + "/annotations.jsonl");
         if (!file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) { respond(socket, requestId, command, {}, false, "cannot save annotation"); return; }
         file.write(QJsonDocument(annotation).toJson(QJsonDocument::Compact) + '\n');
         respond(socket, requestId, command, {{"saved", true}, {"schema_version", 1}}); return;
+    }
+    if (command == "FOCUS_INFER" || command == "FAU_INFER") {
+        startInference(socket, requestId, command == "FOCUS_INFER" ? "focus" : "fau", payload);
+        return;
     }
     if (command == "FOCUS_TRAIN_START" || command == "FAU_TRAIN_START") { startTraining(socket, requestId, command.startsWith("FOCUS") ? "focus" : "fau", payload); return; }
     if (command == "FOCUS_TRAIN_CANCEL" || command == "FAU_TRAIN_CANCEL") {
@@ -440,6 +460,7 @@ void TrainingServer::processMessage(QTcpSocket *socket, const QJsonObject &messa
         respond(socket, requestId, command, {{"run_id", m_activeRunId}, {"state", "CANCELLING"}}); return;
     }
     if (command == "MOTION_LIMIT_GET") { respond(socket, requestId, command, m_limits); return; }
+    if (command == "MOTION_FEEDBACK_GET") { respond(socket, requestId, command, m_motionFeedback->ReadSnapshot().ToJson()); return; }
     if (command == "MOTION_LIMIT_VALIDATE" || command == "MOTION_LIMIT_SAVE") {
         const QJsonObject proposed = payload.value("limits").toObject();
         const QString error = validateLimits(proposed);
@@ -454,8 +475,9 @@ void TrainingServer::processMessage(QTcpSocket *socket, const QJsonObject &messa
     if (command == "MOTION_SIMULATE") {
         const QString error = validateMotion(payload);
         if (!error.isEmpty()) { respond(socket, requestId, command, {}, false, error); return; }
-        m_positions.insert(payload.value("axis").toString(), payload.value("target").toDouble());
-        respond(socket, requestId, command, {{"simulation_only", true}, {"positions", m_positions}}); return;
+        m_simulatedMotionFeedback->SetSimulatedPosition(payload.value("axis").toString(), payload.value("target").toDouble());
+        respond(socket, requestId, command, {{"simulation_only", true}, {"positions", poseMap()},
+            {"motion_feedback", m_motionFeedback->ReadSnapshot().ToJson()}}); return;
     }
     if (command == "TRAINING_RUNS") {
         QJsonArray runs; QDir dir(m_projectRoot + "/runs");
@@ -463,6 +485,18 @@ void TrainingServer::processMessage(QTcpSocket *socket, const QJsonObject &messa
             QFile result(dir.filePath(id + "/result.json")); if (result.open(QIODevice::ReadOnly)) runs.append(QJsonDocument::fromJson(result.readAll()).object());
         }
         respond(socket, requestId, command, {{"runs", runs}}); return;
+    }
+    if (command == "TRAINING_RESULT" || command == "FOCUS_EVALUATE" || command == "FAU_EVALUATE") {
+        const QString runId = payload.value("run_id").toString();
+        if (!validId(runId)) { respond(socket, requestId, command, {}, false, "valid run_id is required"); return; }
+        QFile result(m_projectRoot + "/runs/" + runId + "/result.json");
+        if (!result.open(QIODevice::ReadOnly)) { respond(socket, requestId, command, {}, false, "saved result for this run is unavailable"); return; }
+        const QJsonObject record = QJsonDocument::fromJson(result.readAll()).object();
+        if ((command == "FOCUS_EVALUATE" && !record.value("task").toString().startsWith("focus")) ||
+            (command == "FAU_EVALUATE" && !record.value("task").toString().startsWith("fau"))) {
+            respond(socket, requestId, command, {}, false, "run task does not match the requested evaluation"); return;
+        }
+        respond(socket, requestId, command, record); return;
     }
     respond(socket, requestId, "ERROR", {}, false, "unknown command: " + command);
 }
@@ -479,17 +513,111 @@ void TrainingServer::sendPreviewFrames()
     }
 }
 
+void TrainingServer::startInference(QTcpSocket *socket, const QString &requestId, const QString &task,
+                                   const QJsonObject &payload)
+{
+    if (m_worker || m_inference) { respond(socket, requestId, task == "focus" ? "FOCUS_INFER" : "FAU_INFER", {}, false, "inference is unavailable while another worker is active"); return; }
+    const QString dataset = payload.value("dataset").toString();
+    const QString imageName = QFileInfo(payload.value("image").toString()).fileName();
+    const QString role = payload.value("role").toString("top");
+    const QString checkpointName = payload.value("checkpoint").toString();
+    if (!validId(dataset) || imageName.isEmpty() || (task == "fau" && role != "top" && role != "side") ||
+        QFileInfo(checkpointName).fileName() != checkpointName || (QFileInfo(checkpointName).suffix() != "pt" && QFileInfo(checkpointName).suffix() != "json")) {
+        respond(socket, requestId, task == "focus" ? "FOCUS_INFER" : "FAU_INFER", {}, false, "dataset, image, role, or checkpoint name is invalid"); return;
+    }
+    const QString imagePath = datasetPath(task, dataset) + "/" + imageName;
+    const QString checkpointPath = m_projectRoot + "/models/" + task + "/" + checkpointName;
+    if (!QFileInfo(imagePath).isFile() || !QFileInfo(checkpointPath).isFile()) {
+        respond(socket, requestId, task == "focus" ? "FOCUS_INFER" : "FAU_INFER", {}, false, "selected dataset image or checkpoint does not exist"); return;
+    }
+    m_inferenceRequestId = requestId;
+    m_inferenceCommand = task == "focus" ? "FOCUS_INFER" : "FAU_INFER";
+    m_inferenceImagePath = imagePath;
+    m_inferenceClient = socket;
+    m_inferenceOutput.clear();
+    auto *process = new QProcess(this);
+    m_inference = process;
+    process->setProgram("python3");
+    process->setArguments({QDir(QFileInfo(m_workerScript).absolutePath()).filePath("infer.py"),
+                           "--task", task, "--checkpoint", checkpointPath, "--image", imagePath,
+                           "--role", role});
+    connect(process, &QProcess::readyReadStandardOutput, this, &TrainingServer::readInferenceOutput);
+    connect(process, &QProcess::readyReadStandardError, this, [this, process]() {
+        const QString text = QString::fromUtf8(process->readAllStandardError()).trimmed();
+        if (!text.isEmpty()) emitEvent(m_inferenceClient, "SERVER_LOG", {{"level", "warning"}, {"message", text}});
+    });
+    connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this, &TrainingServer::finishInference);
+    connect(process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
+        if (error == QProcess::FailedToStart) finishInference(-1, QProcess::CrashExit);
+    });
+    process->start();
+}
+
+void TrainingServer::readInferenceOutput()
+{
+    if (m_inference) m_inferenceOutput += QString::fromUtf8(m_inference->readAllStandardOutput());
+}
+
+void TrainingServer::finishInference(int exitCode, QProcess::ExitStatus exitStatus)
+{
+    readInferenceOutput();
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(m_inferenceOutput.toUtf8().trimmed(), &parseError);
+    if (exitStatus == QProcess::NormalExit && exitCode == 0 && parseError.error == QJsonParseError::NoError && document.isObject()) {
+        QJsonObject payload = document.object();
+        const QString event = payload.take("event").toString();
+        if (event == "INFERENCE_RESULT") {
+            QImage original(m_inferenceImagePath);
+            const QSize originalSize = original.size();
+            const QImage preview = original.scaled(QSize(512, 512), Qt::KeepAspectRatio, Qt::SmoothTransformation).convertToFormat(QImage::Format_Grayscale8);
+            QByteArray imageBytes; QBuffer imageBuffer(&imageBytes); imageBuffer.open(QIODevice::WriteOnly); preview.save(&imageBuffer, "PNG");
+            payload.insert("image_base64", QString::fromLatin1(imageBytes.toBase64()));
+            payload.insert("image_width", originalSize.width());
+            payload.insert("image_height", originalSize.height());
+            payload.insert("preview_width", preview.width());
+            payload.insert("preview_height", preview.height());
+            respond(m_inferenceClient, m_inferenceRequestId, m_inferenceCommand, payload);
+        } else {
+            respond(m_inferenceClient, m_inferenceRequestId, m_inferenceCommand, {}, false,
+                    payload.value("error").toString("inference worker returned no prediction"));
+        }
+    } else {
+        respond(m_inferenceClient, m_inferenceRequestId, m_inferenceCommand, {}, false,
+                "inference worker failed or returned malformed output");
+    }
+    QProcess *finished = m_inference;
+    m_inference = nullptr;
+    if (finished) finished->deleteLater();
+    m_inferenceClient = nullptr; m_inferenceRequestId.clear(); m_inferenceCommand.clear();
+    m_inferenceOutput.clear(); m_inferenceImagePath.clear();
+}
+
 void TrainingServer::startTraining(QTcpSocket *socket, const QString &requestId, const QString &task, const QJsonObject &payload)
 {
-    if (m_worker) { respond(socket, requestId, task == "focus" ? "FOCUS_TRAIN_START" : "FAU_TRAIN_START", {}, false, "only one training job may run at a time"); return; }
+    if (m_worker || m_inference) { respond(socket, requestId, task == "focus" ? "FOCUS_TRAIN_START" : "FAU_TRAIN_START", {}, false, "only one model worker may run at a time"); return; }
     const QString dataset = payload.value("dataset").toString();
     const QString dataPath = datasetPath(task, dataset);
     if (!validId(dataset) || !QFileInfo(dataPath + (task == "focus" ? "/manifest.jsonl" : "/annotations.jsonl")).isFile()) {
         respond(socket, requestId, task == "focus" ? "FOCUS_TRAIN_START" : "FAU_TRAIN_START", {}, false, "dataset is missing required labeled data"); return;
     }
-    const int epochs = qBound(1, payload.value("epochs").toInt(20), 300);
-    const double learningRate = payload.value("learning_rate").toDouble(0.05);
-    if (!std::isfinite(learningRate) || learningRate <= 0.0 || learningRate > 1.0) { respond(socket, requestId, "ERROR", {}, false, "learning rate must be finite and in (0, 1]"); return; }
+    const QString defaultArchitecture = task == "focus" ? "statistical-logistic-regression" : "gradient-centroid";
+    const QString architecture = payload.value("architecture").toString(defaultArchitecture);
+    const bool pretrained = (task == "focus" && architecture == "mobilenet_v3_small") ||
+                            (task == "fau" && architecture == "resnet18_keypoint");
+    const bool baseline = (task == "focus" && architecture == "statistical-logistic-regression") ||
+                          (task == "fau" && architecture == "gradient-centroid");
+    if (!pretrained && !baseline) { respond(socket, requestId, "ERROR", {}, false, "unsupported model architecture for this task"); return; }
+    const int epochs = qBound(1, payload.value("epochs").toInt(task == "focus" ? 20 : 30), 300);
+    const int batchSize = qBound(1, payload.value("batch_size").toInt(task == "focus" ? 8 : 4), 256);
+    const double learningRate = payload.value("learning_rate").toDouble(pretrained ? 0.0001 : 0.05);
+    const QString device = payload.value("device").toString("cpu");
+    const QString cameraRole = payload.value("role").toString("top");
+    const QString modelName = payload.value("model_name").toString(task == "focus" ? "focus_model" : "fau_model");
+    if (!std::isfinite(learningRate) || learningRate <= 0.0 || learningRate > (pretrained ? 0.1 : 1.0)) { respond(socket, requestId, "ERROR", {}, false, "learning rate is outside the allowed finite range"); return; }
+    if (device != "cpu" && device != "cuda") { respond(socket, requestId, "ERROR", {}, false, "device must be cpu or cuda"); return; }
+    if (baseline && device != "cpu") { respond(socket, requestId, "ERROR", {}, false, "offline baseline runs support CPU only"); return; }
+    if (task == "fau" && cameraRole != "top" && cameraRole != "side") { respond(socket, requestId, "ERROR", {}, false, "FAU camera role must be top or side"); return; }
+    if (!QRegularExpression("^[A-Za-z0-9_-]{1,48}$").match(modelName).hasMatch()) { respond(socket, requestId, "ERROR", {}, false, "model name must use letters, digits, underscore, or hyphen"); return; }
     m_activeRunId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     m_activeTask = task;
     m_activeRunDir = m_projectRoot + "/runs/" + m_activeRunId;
@@ -497,17 +625,37 @@ void TrainingServer::startTraining(QTcpSocket *socket, const QString &requestId,
     m_jobClient = socket;
     m_cancelRequested = false;
     m_workerTerminalEvent.clear();
+    m_workerTerminalPayload = {};
     QFile::remove(m_activeRunDir + "/cancel");
-    const QString checkpoint = m_projectRoot + "/models/" + task + "/" + m_activeRunId + ".json";
-    QJsonObject config{{"run_id", m_activeRunId}, {"task", task}, {"dataset", dataset}, {"epochs", epochs},
-                       {"learning_rate", learningRate}, {"device", "cpu"}, {"started_at", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)}};
+    const QString extension = pretrained ? ".pt" : ".json";
+    const QString checkpoint = m_projectRoot + "/models/" + task + "/" + modelName + "_" + m_activeRunId.left(8) + extension;
+    QJsonObject config{{"run_id", m_activeRunId}, {"task", task}, {"dataset", dataset}, {"dataset_version", 1},
+                       {"architecture", architecture}, {"pretrained", pretrained}, {"model_name", modelName},
+                       {"camera_role", cameraRole}, {"epochs", epochs}, {"batch_size", batchSize},
+                       {"learning_rate", learningRate}, {"device", device},
+                       {"started_at", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)}};
     QFile configFile(m_activeRunDir + "/config.json"); configFile.open(QIODevice::WriteOnly); configFile.write(QJsonDocument(config).toJson(QJsonDocument::Indented));
     auto *process = new QProcess(this);
     m_worker = process;
     process->setProgram("python3");
-    process->setArguments({m_workerScript, "--task", task, "--dataset", dataPath,
-                           "--run-id", m_activeRunId, "--epochs", QString::number(epochs), "--learning-rate", QString::number(learningRate, 'g', 8),
-                           "--checkpoint", checkpoint, "--result", m_activeRunDir + "/result.json", "--cancel-file", m_activeRunDir + "/cancel"});
+    QString workerPath = m_workerScript;
+    QStringList arguments;
+    if (pretrained) {
+        const QString modelType = task == "focus" ? "focus" : "fau";
+        workerPath = QDir(QFileInfo(m_workerScript).absolutePath()).filePath("../" + modelType + "/train.py");
+        arguments = {workerPath, "--dataset", dataPath, "--run-id", m_activeRunId,
+                     "--epochs", QString::number(epochs), "--batch-size", QString::number(batchSize),
+                     "--learning-rate", QString::number(learningRate, 'g', 8), "--device", device,
+                     "--checkpoint", checkpoint, "--result", m_activeRunDir + "/result.json",
+                     "--cancel-file", m_activeRunDir + "/cancel"};
+        if (task == "fau") arguments << "--role" << cameraRole;
+    } else {
+        arguments = {workerPath, "--task", task, "--dataset", dataPath,
+                     "--run-id", m_activeRunId, "--epochs", QString::number(epochs),
+                     "--learning-rate", QString::number(learningRate, 'g', 8), "--checkpoint", checkpoint,
+                     "--result", m_activeRunDir + "/result.json", "--cancel-file", m_activeRunDir + "/cancel"};
+    }
+    process->setArguments(arguments);
     connect(process, &QProcess::readyReadStandardOutput, this, &TrainingServer::readWorkerOutput);
     connect(process, &QProcess::readyReadStandardError, this, [this, process]() {
         const QString text = QString::fromUtf8(process->readAllStandardError()).trimmed();
@@ -518,8 +666,11 @@ void TrainingServer::startTraining(QTcpSocket *socket, const QString &requestId,
         if (error == QProcess::FailedToStart) finishWorker(-1, QProcess::CrashExit);
     });
     process->start();
-    respond(socket, requestId, task == "focus" ? "FOCUS_TRAIN_START" : "FAU_TRAIN_START", {{"run_id", m_activeRunId}, {"state", "PREPARING"}, {"checkpoint", checkpoint}});
-    emitEvent(socket, "TRAINING_STARTED", {{"run_id", m_activeRunId}, {"task", task}, {"state", "PREPARING"}});
+    respond(socket, requestId, task == "focus" ? "FOCUS_TRAIN_START" : "FAU_TRAIN_START",
+            {{"run_id", m_activeRunId}, {"state", "PREPARING"}, {"checkpoint", checkpoint},
+             {"architecture", architecture}, {"pretrained", pretrained}});
+    emitEvent(socket, "TRAINING_STARTED", {{"run_id", m_activeRunId}, {"task", task},
+                {"architecture", architecture}, {"pretrained", pretrained}, {"state", "PREPARING"}});
 }
 
 void TrainingServer::readWorkerOutput()
@@ -534,8 +685,12 @@ void TrainingServer::readWorkerOutput()
         const QJsonObject workerMessage = QJsonDocument::fromJson(line).object();
         const QString event = workerMessage.value("event").toString();
         if (!event.isEmpty()) {
-            emitEvent(m_jobClient, event, workerMessage);
-            if (event == "TRAINING_COMPLETED" || event == "TRAINING_FAILED" || event == "TRAINING_CANCELLED") m_workerTerminalEvent = event;
+            if (event == "TRAINING_COMPLETED" || event == "TRAINING_FAILED" || event == "TRAINING_CANCELLED") {
+                m_workerTerminalEvent = event;
+                m_workerTerminalPayload = workerMessage;
+            } else {
+                emitEvent(m_jobClient, event, workerMessage);
+            }
         }
     }
 }
@@ -547,17 +702,34 @@ void TrainingServer::finishWorker(int exitCode, QProcess::ExitStatus exitStatus)
         const QJsonObject message = QJsonDocument::fromJson(m_workerOutput.toUtf8()).object();
         if (!message.isEmpty()) {
             const QString event = message.value("event").toString();
-            emitEvent(m_jobClient, event, message);
-            if (event == "TRAINING_COMPLETED" || event == "TRAINING_FAILED" || event == "TRAINING_CANCELLED") m_workerTerminalEvent = event;
+            if (event == "TRAINING_COMPLETED" || event == "TRAINING_FAILED" || event == "TRAINING_CANCELLED") {
+                m_workerTerminalEvent = event;
+                m_workerTerminalPayload = message;
+            } else if (!event.isEmpty()) {
+                emitEvent(m_jobClient, event, message);
+            }
         }
     }
     if (m_workerTerminalEvent.isEmpty() && (exitStatus != QProcess::NormalExit || (exitCode != 0 && exitCode != 2))) {
-        emitEvent(m_jobClient, "TRAINING_FAILED", {{"run_id", m_activeRunId}, {"error", "worker exited with code " + QString::number(exitCode)}});
+        m_workerTerminalEvent = "TRAINING_FAILED";
+        m_workerTerminalPayload = {{"run_id", m_activeRunId}, {"error", "worker exited with code " + QString::number(exitCode)}};
     } else if (m_workerTerminalEvent.isEmpty() && (exitCode == 2 || m_cancelRequested)) {
-        emitEvent(m_jobClient, "TRAINING_CANCELLED", {{"run_id", m_activeRunId}, {"task", m_activeTask}});
+        m_workerTerminalEvent = "TRAINING_CANCELLED";
+        m_workerTerminalPayload = {{"run_id", m_activeRunId}, {"task", m_activeTask}};
+    }
+    const QString resultPath = m_activeRunDir + "/result.json";
+    if (!QFileInfo::exists(resultPath) && !m_activeRunId.isEmpty()) {
+        QString state = m_workerTerminalEvent == "TRAINING_CANCELLED" ? "CANCELLED" : "FAILED";
+        QJsonObject result{{"run_id", m_activeRunId}, {"task", m_activeTask}, {"status", state},
+                           {"worker_event", m_workerTerminalEvent},
+                           {"error", m_workerTerminalPayload.value("error").toString()},
+                           {"finished_at", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)}};
+        QFile file(resultPath);
+        if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) file.write(QJsonDocument(result).toJson(QJsonDocument::Indented));
     }
     QProcess *finished = m_worker;
     m_worker = nullptr;
     if (finished) finished->deleteLater();
-    m_activeRunId.clear(); m_activeTask.clear(); m_activeRunDir.clear(); m_workerOutput.clear(); m_workerTerminalEvent.clear(); m_jobClient = nullptr; m_cancelRequested = false;
+    if (!m_workerTerminalEvent.isEmpty()) emitEvent(m_jobClient, m_workerTerminalEvent, m_workerTerminalPayload);
+    m_activeRunId.clear(); m_activeTask.clear(); m_activeRunDir.clear(); m_workerOutput.clear(); m_workerTerminalEvent.clear(); m_workerTerminalPayload = {}; m_jobClient = nullptr; m_cancelRequested = false;
 }
