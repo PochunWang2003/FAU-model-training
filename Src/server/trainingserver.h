@@ -12,8 +12,11 @@
 #include <QTcpSocket>
 #include <QTimer>
 
-#include "motion/IMotionFeedbackProvider.h"
-#include "motion/SimulatedMotionFeedbackProvider.h"
+#include "camera/ICameraAcquisitionService.h"
+#include "camera/SyntheticCameraService.h"
+#include "inference/ModelRuntimeRegistry.h"
+#include "motion/IMotionBackend.h"
+#include "motion/SimulatedMotionBackend.h"
 
 #include <memory>
 
@@ -41,7 +44,6 @@ private:
     void emitEvent(QTcpSocket *socket, const QString &event, const QJsonObject &payload = {});
     bool validId(const QString &value) const;
     QString datasetPath(const QString &kind, const QString &id) const;
-    QImage syntheticFrame(const QString &role, int seed, bool focusDemo) const;
     bool writePgm(const QImage &image, const QString &path) const;
     bool createDataset(const QString &kind, const QString &id, int count, QString *error);
     void startTraining(QTcpSocket *socket, const QString &requestId, const QString &task,
@@ -77,8 +79,10 @@ private:
     QString m_inferenceImagePath;
     bool m_cancelRequested = false;
     QJsonObject m_limits;
-    std::unique_ptr<IMotionFeedbackProvider> m_motionFeedback;
-    SimulatedMotionFeedbackProvider *m_simulatedMotionFeedback = nullptr;
+    std::unique_ptr<IMotionBackend> m_motionBackend;
+    SimulatedMotionBackend *m_simulatedMotionBackend = nullptr;
+    std::unique_ptr<ICameraAcquisitionService> m_cameraService;
+    ModelRuntimeRegistry m_runtimeRegistry;
 };
 
 #endif

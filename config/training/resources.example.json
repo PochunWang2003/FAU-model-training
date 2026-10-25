@@ -1,0 +1,6 @@
+{
+  "device": "cpu",
+  "max_workers": 1,
+  "training_and_physical_control_simultaneous": false,
+  "worker_process_supervised_by_server": true
+}

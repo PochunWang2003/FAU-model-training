@@ -1,55 +1,47 @@
-# FAU Model Training
+# FAU Motion and Vision Training
 
-Standalone Qt client/server prototype for camera datasets, focus training, FAU annotations, baseline detection, and simulated motion-limit validation. It has no EtherCAT or physical motion interface.
+This repository is being structured as one Qt UI plus one unified Qt server for motion status, camera acquisition, Focus/FAU training, model testing, and future model runtime inference. The public build currently runs in offline/simulation mode.
 
-## Current implementation status
+## Current implementation
 
-The application uses a versioned newline-delimited JSON protocol on configurable port 8097. The Qt server supervises one Python worker at a time, and all training and inference requests originate in the Qt UI. The UI provides a synthetic camera preview, dataset management, training controls, progress, evaluation, checkpoint selection, and pixel-space inference overlays.
+- The Qt Designer UI contains Motion Control, Cameras and Dataset, Focus Training, FAU Training, Model Testing, Model Runtime, Settings and Logs, and Diagnostics pages.
+- Focus training preserves ImageNet-pretrained MobileNetV3-Small support and the statistical offline baseline.
+- FAU training preserves ImageNet-pretrained ResNet18 keypoint support and the deterministic gradient-centroid baseline.
+- Testing uses the existing dataset/checkpoint and worker-backed inference protocol.
+- The model runtime page exercises mock load/unload state transitions only. It does not load checkpoints or infer.
+- The server owns one synthetic camera service for TOP/SIDE preview and capture. Basler pylon is not integrated.
+- `IMotionBackend` defines the backend boundary. Simulation is selected; NEC and GMRT placeholders are unavailable. Physical initialization, Servo, fault reset, homing, and MoveL are disabled.
+- The existing versioned JSON protocol remains on port 8097. Original motion TCP compatibility on port 8087 is documented but not hosted by the unified server yet.
 
-Focus training supports an ImageNet-pretrained torchvision MobileNetV3-Small sharp/blurred classifier and an explicitly separate statistical CPU baseline. FAU training supports an ImageNet-pretrained ResNet18 encoder with a trainable keypoint heatmap decoder and a separate deterministic gradient-centroid baseline. Focus and FAU data, runs, and checkpoints use independent directories. Motion limits are validated by the server and only feed an in-memory simulator; pose is labeled simulated and raw encoder counts are unavailable.
+The original Qt server/UI archive at `/home/user/Desktop/qt-server(20261022-005017).zip` remains external and read-only. Redistribution rights have not been confirmed. Do not copy its source, proprietary libraries, headers, binaries, machine data, or logs into this repository. The optional reference build helper is not an integrated motion server.
 
-The requested `qt-server(20261022-005017)(2).zip` was not available during this implementation. The earlier ignored `.reference/` extraction contains both server and UI sources and was used only as a provisional design reference. The exact comparison and its limits are documented in `Doc/UI_REFERENCE_COMPARISON.md`. No legacy production motion source is linked into this application.
-
-## Dependencies
-
-- Qt 6 Core, Network, and Widgets development tools (`qmake6`, `uic`, C++17 compiler)
-- Python 3.8 or newer
-- Python standard library for the offline baselines
-- Compatible PyTorch and torchvision for pretrained training/inference; these were unavailable during this build, and the UI/server report that dependency error explicitly
-- Basler pylon is optional; no Basler backend is implemented yet
-
-This host has Qt 6.2.4 and qmake. PyTorch, torchvision, OpenCV Python bindings, and pylon were not present during verification. The server and UI build instructions use qmake.
-
-## Build
+## Build and test
 
 From the repository root:
 
 ```sh
 python3 scripts/build.py
-```
-
-The generated binaries are placed under `build/`.
-
-## Run
-
-Terminal 1, start the server:
-
-```sh
-python3 scripts/run_server.py
-```
-
-Terminal 2, launch the UI:
-
-```sh
-python3 scripts/run_ui.py
-```
-
-The UI connects to `127.0.0.1:8097`. Use the Focus tab to create/import data, select MobileNetV3-Small or the offline baseline, configure training, and start a run. The UI sends `FOCUS_TRAIN_START`; the server launches and monitors the worker and relays structured progress. FAU has an independent annotation and ResNet18 keypoint workflow. Pretrained runs require PyTorch/torchvision. The server binds to loopback only.
-
-## Tests
-
-```sh
 python3 scripts/test.py
 ```
 
-The test script builds both Qt targets and exercises JSON framing, synthetic camera, dataset labeling, focus score and baseline training, FAU annotations and baseline evaluation, inference, cancellation/reconnection, missing-PyTorch error handling, and server-side motion-limit validation. It launches the Qt Widgets application offscreen as a startup smoke test. It does not prove pretrained model execution, camera hardware behavior, or real-time performance.
+Build outputs are ignored under `build/`. Offline tests use simulated motion and synthetic frames. They do not validate hardware, timing, pretrained model execution, or external NEC/GMRT dependencies. See [Doc/BUILD.md](Doc/BUILD.md).
+
+## Run
+
+Start the server and UI in separate terminals:
+
+```sh
+python3 scripts/run_server.py
+python3 scripts/run_ui.py
+```
+
+The UI connects to `127.0.0.1:8097` by default. Focus and FAU datasets, runs, and checkpoints are independent. PyTorch/torchvision pretrained execution requires compatible dependencies and cached weights on the host. No packages or weights are installed by this project.
+
+## Architecture documents
+
+- [Unified architecture](Doc/UNIFIED_ARCHITECTURE.md)
+- [UI page map](Doc/UI_PAGE_MAP.md)
+- [Motion backend migration](Doc/MOTION_BACKEND_MIGRATION.md)
+- [TCP compatibility](Doc/TCP_COMPATIBILITY.md)
+- [Training to runtime](Doc/TRAINING_TO_RUNTIME.md)
+- [Build and verification](Doc/BUILD.md)

@@ -23,7 +23,14 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    setWindowTitle("FAU Model Training");
+    setWindowTitle("FAU Motion and Vision Training");
+    const QString unavailableTooltip = "Unavailable in this build: no physical motion backend is configured.";
+    ui->machineInitializeButton->setToolTip(unavailableTooltip);
+    ui->servoOnButton->setToolTip(unavailableTooltip);
+    ui->servoOffButton->setToolTip(unavailableTooltip);
+    ui->faultResetButton->setToolTip(unavailableTooltip);
+    ui->homeButton->setToolTip(unavailableTooltip);
+    ui->moveLButton->setToolTip(unavailableTooltip);
     if (auto *sourceModel = qobject_cast<QStandardItemModel *>(ui->cameraSourceCombo->model())) {
         if (QStandardItem *baslerItem = sourceModel->item(1)) baslerItem->setEnabled(false);
     }
@@ -49,6 +56,7 @@ MainWindow::MainWindow(QWidget *parent)
         sendCommand("GET_STATUS");
         sendCommand("MOTION_LIMIT_GET");
         sendCommand("MOTION_FEEDBACK_GET");
+        sendCommand("MODEL_RUNTIME_STATUS");
     });
     connect(&m_socket, &QTcpSocket::disconnected, this, [this]() {
         ui->serverLabel->setText("Server: disconnected");
@@ -57,6 +65,18 @@ MainWindow::MainWindow(QWidget *parent)
     });
     connect(&m_socket, &QTcpSocket::readyRead, this, &MainWindow::readServer);
     connect(ui->connectButton, &QPushButton::clicked, this, &MainWindow::connectServer);
+    connect(ui->runtimeMockLoadFocusButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("MODEL_RUNTIME_MOCK_LOAD", {{"kind", "focus"}});
+    });
+    connect(ui->runtimeMockUnloadFocusButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("MODEL_RUNTIME_MOCK_UNLOAD", {{"kind", "focus"}});
+    });
+    connect(ui->runtimeMockLoadFauButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("MODEL_RUNTIME_MOCK_LOAD", {{"kind", "fau"}});
+    });
+    connect(ui->runtimeMockUnloadFauButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("MODEL_RUNTIME_MOCK_UNLOAD", {{"kind", "fau"}});
+    });
     connect(ui->createFocusDatasetButton, &QPushButton::clicked, this, [this]() {
         m_focusDataset = ui->focusDatasetEdit->text().trimmed();
         sendCommand("DATASET_CREATE", {{"kind", "focus"}, {"dataset", m_focusDataset}, {"count", 20}});
@@ -147,6 +167,31 @@ MainWindow::MainWindow(QWidget *parent)
         sendCommand("MOTION_SIMULATE", {{"axis", ui->motionAxisCombo->currentText()}, {"target", ui->motionTargetSpin->value()}, {"speed", ui->motionSpeedSpin->value()}});
     });
     connect(ui->refreshRunsButton, &QPushButton::clicked, this, [this]() { sendCommand("TRAINING_RUNS"); });
+    connect(ui->focusTestPageLoadImagesButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("DATASET_IMAGES", {{"kind", "focus"}, {"dataset", ui->focusTestDatasetEdit->text().trimmed()},
+                    {"split", ui->focusTestPageSplitCombo->currentText()}});
+    });
+    connect(ui->fauTestPageLoadImagesButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("DATASET_IMAGES", {{"kind", "fau"}, {"dataset", ui->fauTestDatasetEdit->text().trimmed()},
+                    {"split", ui->fauTestPageSplitCombo->currentText()}});
+    });
+    connect(ui->focusTestPageLoadCheckpointsButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("MODEL_CHECKPOINTS", {{"kind", "focus"}});
+    });
+    connect(ui->fauTestPageLoadCheckpointsButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("MODEL_CHECKPOINTS", {{"kind", "fau"}});
+    });
+    connect(ui->focusTestPageRunButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("FOCUS_INFER", {{"dataset", ui->focusTestDatasetEdit->text().trimmed()},
+                    {"image", ui->focusTestPageImageCombo->currentData().toString()},
+                    {"checkpoint", ui->focusTestPageCheckpointCombo->currentData().toString()}});
+    });
+    connect(ui->fauTestPageRunButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("FAU_INFER", {{"dataset", ui->fauTestDatasetEdit->text().trimmed()},
+                    {"image", ui->fauTestPageImageCombo->currentData().toString()},
+                    {"role", ui->fauTestPageRoleCombo->currentText()},
+                    {"checkpoint", ui->fauTestPageCheckpointCombo->currentData().toString()}});
+    });
     connect(ui->evaluateFocusButton, &QPushButton::clicked, this, [this]() {
         sendCommand("FOCUS_EVALUATE", {{"run_id", ui->evaluationRunIdEdit->text().trimmed()}});
     });
@@ -261,8 +306,14 @@ void MainWindow::handleMessage(const QJsonObject &message)
     const QJsonObject payload = message.value("payload").toObject();
     if (!message.value("ok").toBool(true)) {
         const QString error = message.value("error").toObject().value("message").toString("request failed");
-        if (event == "FOCUS_INFER") ui->focusInferenceLabel->setText("Inference failed: " + error);
-        if (event == "FAU_INFER") ui->fauInferenceLabel->setText("Inference failed: " + error);
+        if (event == "FOCUS_INFER") {
+            ui->focusInferenceLabel->setText("Inference failed: " + error);
+            ui->focusTestPageOutput->setPlainText("Inference failed: " + error);
+        }
+        if (event == "FAU_INFER") {
+            ui->fauInferenceLabel->setText("Inference failed: " + error);
+            ui->fauTestPageOutput->setPlainText("Inference failed: " + error);
+        }
         if (error.contains("PyTorch", Qt::CaseInsensitive) || error.contains("torchvision", Qt::CaseInsensitive))
             ui->modelAvailabilityLabel->setText("PyTorch unavailable · " + error);
         else if (error.contains("weight", Qt::CaseInsensitive))
@@ -342,8 +393,13 @@ void MainWindow::handleMessage(const QJsonObject &message)
         ui->serverHealthLabel->setText("READY · training server responding");
         ui->trainingStateLabel->setText("Training: " + payload.value("training_state").toString());
         ui->cameraStatusLabel->setText(payload.value("camera_backend").toString());
+        ui->motionBackendStatusLabel->setText("Backend: " + payload.value("motion_backend").toString().toUpper()
+            + " · " + payload.value("motion_backend_status").toString()
+            + " · physical controls disabled");
         if (!payload.value("active_run_id").toString().isEmpty()) ui->runStatusLabel->setText(payload.value("active_run_id").toString());
         applyMotionFeedback(payload.value("motion_feedback").toObject());
+    } else if (event == "MODEL_RUNTIME_STATUS" || event == "MODEL_RUNTIME_MOCK_LOAD" || event == "MODEL_RUNTIME_MOCK_UNLOAD") {
+        applyRuntimeStatus(payload);
     } else if (event == "MOTION_FEEDBACK_GET") {
         applyMotionFeedback(payload);
     } else if (event == "MOTION_LIMIT_GET") {
@@ -361,7 +417,9 @@ void MainWindow::handleMessage(const QJsonObject &message)
     } else if (event == "DATASET_IMAGES") {
         const bool focus = payload.value("kind").toString() == "focus";
         QComboBox *selector = focus ? ui->focusTestImageCombo : ui->fauTestImageCombo;
+        QComboBox *pageSelector = focus ? ui->focusTestPageImageCombo : ui->fauTestPageImageCombo;
         selector->clear();
+        pageSelector->clear();
         for (const QJsonValue &value : payload.value("images").toArray()) {
             const QJsonObject row = value.toObject();
             const QString image = row.value("image").toString();
@@ -371,20 +429,27 @@ void MainWindow::handleMessage(const QJsonObject &message)
                 label.isEmpty() ? QString() : QStringLiteral(" · ") + label);
             selector->addItem(detail, image);
             selector->setItemData(selector->count() - 1, role, Qt::UserRole + 1);
+            pageSelector->addItem(detail, image);
+            pageSelector->setItemData(pageSelector->count() - 1, role, Qt::UserRole + 1);
         }
         if (selector->count() == 0) selector->addItem("No images in selected split", QString());
+        if (pageSelector->count() == 0) pageSelector->addItem("No images in selected split", QString());
         appendLog(QString("Loaded %1 %2 image(s) from split %3")
             .arg(selector->count()).arg(focus ? "focus" : "FAU")
             .arg(focus ? ui->focusTestSplitCombo->currentText() : ui->fauTestSplitCombo->currentText()));
     } else if (event == "MODEL_CHECKPOINTS") {
         const bool focus = payload.value("kind").toString() == "focus";
         QComboBox *selector = focus ? ui->focusCheckpointCombo : ui->fauCheckpointCombo;
+        QComboBox *pageSelector = focus ? ui->focusTestPageCheckpointCombo : ui->fauTestPageCheckpointCombo;
         selector->clear();
+        pageSelector->clear();
         for (const QJsonValue &value : payload.value("checkpoints").toArray()) {
             const QString checkpoint = value.toString();
             selector->addItem(checkpoint, checkpoint);
+            pageSelector->addItem(checkpoint, checkpoint);
         }
         if (selector->count() == 0) selector->addItem("No server checkpoints found", QString());
+        if (pageSelector->count() == 0) pageSelector->addItem("No server checkpoints found", QString());
         appendLog(QString("Loaded %1 %2 checkpoint(s)").arg(selector->count()).arg(focus ? "focus" : "FAU"));
     } else if (event == "FOCUS_EVALUATE" || event == "FAU_EVALUATE" || event == "TRAINING_RESULT") {
         ui->resultsOutput->appendPlainText(event + ":\n" + QString::fromUtf8(QJsonDocument(payload).toJson(QJsonDocument::Indented)));
@@ -392,6 +457,7 @@ void MainWindow::handleMessage(const QJsonObject &message)
         const QByteArray imageBytes = QByteArray::fromBase64(payload.value("image_base64").toString().toLatin1());
         QPixmap pixmap; pixmap.loadFromData(imageBytes, "PNG");
         QLabel *preview = event == "FOCUS_INFER" ? ui->focusInferencePreview : ui->fauInferencePreview;
+        QLabel *pagePreview = event == "FOCUS_INFER" ? ui->focusTestPagePreview : ui->fauTestPagePreview;
         pixmap = pixmap.scaled(preview->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
         const double scaleX = payload.value("image_width").toInt() > 0 ? static_cast<double>(pixmap.width()) / payload.value("image_width").toInt() : 1.0;
         const double scaleY = payload.value("image_height").toInt() > 0 ? static_cast<double>(pixmap.height()) / payload.value("image_height").toInt() : 1.0;
@@ -420,6 +486,9 @@ void MainWindow::handleMessage(const QJsonObject &message)
                     .arg((1.0 - payload.value("sharp_probability").toDouble()) * 100.0, 0, 'f', 1));
         }
         preview->setPixmap(pixmap);
+        pagePreview->setPixmap(pixmap);
+        QPlainTextEdit *pageOutput = event == "FOCUS_INFER" ? ui->focusTestPageOutput : ui->fauTestPageOutput;
+        pageOutput->setPlainText(QString::fromUtf8(QJsonDocument(payload).toJson(QJsonDocument::Indented)));
     } else if (event == "FAU_ANNOTATION_SAVE") {
         ui->fauOutput->appendPlainText("Annotation saved with schema version " + QString::number(payload.value("schema_version").toInt()));
     } else if (event == "DATASET_CREATE") {
@@ -450,6 +519,18 @@ void MainWindow::handleMessage(const QJsonObject &message)
     } else {
         appendLog(event + " accepted");
     }
+}
+
+void MainWindow::applyRuntimeStatus(const QJsonObject &status)
+{
+    const QJsonObject focus = status.value("focus").toObject();
+    const QJsonObject fau = status.value("fau").toObject();
+    ui->runtimeFocusStateLabel->setText(focus.value("state").toString("UNAVAILABLE")
+        + (focus.value("checkpoint_read").toBool() ? "" : " · no checkpoint read"));
+    ui->runtimeFauStateLabel->setText(fau.value("state").toString("UNAVAILABLE")
+        + (fau.value("checkpoint_read").toBool() ? "" : " · no checkpoint read"));
+    ui->runtimeInferenceStateLabel->setText("Inference: DISABLED · " + status.value("mode").toString("unavailable"));
+    ui->runtimeTimingLabel->setText("Inference timing: unavailable");
 }
 
 QJsonObject MainWindow::motionLimitsFromTable() const

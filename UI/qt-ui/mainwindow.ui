@@ -86,7 +86,7 @@
       </property>
       <widget class="QWidget" name="dashboardTab">
        <attribute name="title">
-        <string>Dashboard</string>
+        <string>Motion Control</string>
        </attribute>
        <layout class="QVBoxLayout" name="dashboardLayout">
         <item>
@@ -95,7 +95,7 @@
            <string>font-size:20pt;font-weight:bold;padding:12px;</string>
           </property>
           <property name="text">
-           <string>Offline visual training prototype</string>
+          <string>Motion Control · physical backend unavailable</string>
           </property>
          </widget>
         </item>
@@ -193,6 +193,23 @@
          </widget>
         </item>
         <item>
+         <widget class="QGroupBox" name="physicalMotionGroup">
+          <property name="title"><string>Physical machine controls</string></property>
+          <layout class="QVBoxLayout" name="physicalMotionLayout">
+           <item><widget class="QLabel" name="physicalMotionUnavailableLabel"><property name="text"><string>UNAVAILABLE · NEC and GMRT adapters are placeholders. No EtherCAT or physical motion command can be sent from this build.</string></property><property name="wordWrap"><bool>true</bool></property></widget></item>
+           <item><layout class="QHBoxLayout" name="machineControlLayout">
+            <item><widget class="QPushButton" name="machineInitializeButton"><property name="text"><string>Initialize machine (unavailable)</string></property><property name="enabled"><bool>false</bool></property></widget></item>
+            <item><widget class="QPushButton" name="servoOnButton"><property name="text"><string>Servo ON (unavailable)</string></property><property name="enabled"><bool>false</bool></property></widget></item>
+            <item><widget class="QPushButton" name="servoOffButton"><property name="text"><string>Servo OFF (unavailable)</string></property><property name="enabled"><bool>false</bool></property></widget></item>
+            <item><widget class="QPushButton" name="faultResetButton"><property name="text"><string>Fault reset (unavailable)</string></property><property name="enabled"><bool>false</bool></property></widget></item>
+            <item><widget class="QPushButton" name="homeButton"><property name="text"><string>Homing (unavailable)</string></property><property name="enabled"><bool>false</bool></property></widget></item>
+            <item><widget class="QPushButton" name="moveLButton"><property name="text"><string>MoveL (unavailable)</string></property><property name="enabled"><bool>false</bool></property></widget></item>
+           </layout></item>
+           <item><widget class="QLabel" name="motionBackendStatusLabel"><property name="text"><string>Backend: SIMULATED · physical control disabled</string></property></widget></item>
+          </layout>
+         </widget>
+        </item>
+        <item>
          <spacer name="dashboardSpacer">
           <property name="orientation">
            <enum>Qt::Vertical</enum>
@@ -209,7 +226,7 @@
       </widget>
       <widget class="QWidget" name="cameraTab">
        <attribute name="title">
-        <string>Live Camera</string>
+        <string>Cameras and Dataset</string>
        </attribute>
        <layout class="QVBoxLayout" name="cameraLayout">
         <item>
@@ -759,7 +776,7 @@
       </widget>
       <widget class="QWidget" name="resultsTab">
        <attribute name="title">
-        <string>Training Results</string>
+        <string>Model Testing</string>
        </attribute>
        <layout class="QVBoxLayout" name="resultsLayout">
         <item>
@@ -769,6 +786,33 @@
           </property>
          </widget>
         </item>
+        <item><widget class="QGroupBox" name="focusTestingGroup"><property name="title"><string>Focus checkpoint testing</string></property><layout class="QGridLayout" name="focusTestingLayout">
+         <item row="0" column="0"><widget class="QLabel" name="focusTestDatasetCaption"><property name="text"><string>Dataset</string></property></widget></item>
+         <item row="0" column="1"><widget class="QLineEdit" name="focusTestDatasetEdit"><property name="text"><string>focus_demo</string></property></widget></item>
+         <item row="0" column="2"><widget class="QComboBox" name="focusTestPageSplitCombo"><item><property name="text"><string>test</string></property></item><item><property name="text"><string>validation</string></property></item><item><property name="text"><string>train</string></property></item></widget></item>
+         <item row="0" column="3"><widget class="QPushButton" name="focusTestPageLoadImagesButton"><property name="text"><string>Load images</string></property></widget></item>
+         <item row="0" column="4"><widget class="QComboBox" name="focusTestPageImageCombo"/></item>
+         <item row="1" column="0"><widget class="QLabel" name="focusTestPageCheckpointCaption"><property name="text"><string>Checkpoint</string></property></widget></item>
+         <item row="1" column="1" colspan="2"><widget class="QComboBox" name="focusTestPageCheckpointCombo"/></item>
+         <item row="1" column="3"><widget class="QPushButton" name="focusTestPageLoadCheckpointsButton"><property name="text"><string>Load checkpoints</string></property></widget></item>
+         <item row="1" column="4"><widget class="QPushButton" name="focusTestPageRunButton"><property name="text"><string>Run Focus test</string></property></widget></item>
+         <item row="2" column="0" colspan="2"><widget class="QLabel" name="focusTestPagePreview"><property name="minimumSize"><size><width>240</width><height>160</height></size></property><property name="text"><string>Inference preview unavailable</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+         <item row="2" column="2" colspan="3"><widget class="QPlainTextEdit" name="focusTestPageOutput"><property name="readOnly"><bool>true</bool></property></widget></item>
+        </layout></widget></item>
+        <item><widget class="QGroupBox" name="fauTestingGroup"><property name="title"><string>FAU checkpoint testing</string></property><layout class="QGridLayout" name="fauTestingLayout">
+         <item row="0" column="0"><widget class="QLabel" name="fauTestDatasetCaption"><property name="text"><string>Dataset</string></property></widget></item>
+         <item row="0" column="1"><widget class="QLineEdit" name="fauTestDatasetEdit"><property name="text"><string>fau_demo</string></property></widget></item>
+         <item row="0" column="2"><widget class="QComboBox" name="fauTestPageRoleCombo"><item><property name="text"><string>top</string></property></item><item><property name="text"><string>side</string></property></item></widget></item>
+         <item row="0" column="3"><widget class="QComboBox" name="fauTestPageSplitCombo"><item><property name="text"><string>test</string></property></item><item><property name="text"><string>validation</string></property></item><item><property name="text"><string>train</string></property></item></widget></item>
+         <item row="0" column="4"><widget class="QPushButton" name="fauTestPageLoadImagesButton"><property name="text"><string>Load images</string></property></widget></item>
+         <item row="0" column="5"><widget class="QComboBox" name="fauTestPageImageCombo"/></item>
+         <item row="1" column="0"><widget class="QLabel" name="fauTestPageCheckpointCaption"><property name="text"><string>Checkpoint</string></property></widget></item>
+         <item row="1" column="1" colspan="2"><widget class="QComboBox" name="fauTestPageCheckpointCombo"/></item>
+         <item row="1" column="3"><widget class="QPushButton" name="fauTestPageLoadCheckpointsButton"><property name="text"><string>Load checkpoints</string></property></widget></item>
+         <item row="1" column="4" colspan="2"><widget class="QPushButton" name="fauTestPageRunButton"><property name="text"><string>Run FAU test</string></property></widget></item>
+         <item row="2" column="0" colspan="2"><widget class="QLabel" name="fauTestPagePreview"><property name="minimumSize"><size><width>240</width><height>160</height></size></property><property name="text"><string>Inference preview unavailable</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+         <item row="2" column="2" colspan="4"><widget class="QPlainTextEdit" name="fauTestPageOutput"><property name="readOnly"><bool>true</bool></property></widget></item>
+        </layout></widget></item>
         <item>
          <layout class="QHBoxLayout" name="evaluationControlsLayout">
           <item><widget class="QLineEdit" name="evaluationRunIdEdit"><property name="placeholderText"><string>Run ID (filled from latest completion)</string></property></widget></item>
@@ -787,7 +831,7 @@
       </widget>
       <widget class="QWidget" name="motionTab">
        <attribute name="title">
-        <string>Motion Limits (Simulation)</string>
+        <string>Settings and Logs</string>
        </attribute>
        <layout class="QVBoxLayout" name="motionLayout">
         <item>
@@ -981,12 +1025,49 @@
       </widget>
       <widget class="QWidget" name="logsTab">
        <attribute name="title">
-        <string>Logs</string>
+        <string>Diagnostics</string>
        </attribute>
        <layout class="QVBoxLayout" name="logsLayout">
         <item>
          <widget class="QLabel" name="logsTabExplanation"><property name="text"><string>Live server, dataset, camera, worker, and validation messages remain visible in the central log panel below the tabs.</string></property><property name="wordWrap"><bool>true</bool></property></widget>
         </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="runtimeTab">
+       <attribute name="title"><string>Model Runtime</string></attribute>
+       <layout class="QVBoxLayout" name="runtimeLayout">
+        <item><widget class="QLabel" name="runtimeUnavailableLabel"><property name="text"><string>MOCK INTERFACE ONLY · checkpoint loading and camera inference are not connected to a production runtime.</string></property><property name="wordWrap"><bool>true</bool></property></widget></item>
+        <item><widget class="QGroupBox" name="runtimeFocusGroup"><property name="title"><string>Focus model</string></property><layout class="QFormLayout" name="runtimeFocusLayout">
+         <item row="0" column="0"><widget class="QLabel" name="runtimeFocusCheckpointCaption"><property name="text"><string>Checkpoint</string></property></widget></item>
+         <item row="0" column="1"><widget class="QComboBox" name="runtimeFocusCheckpointCombo"><property name="editable"><bool>true</bool></property><property name="placeholderText"><string>Select a compatible focus checkpoint</string></property></widget></item>
+         <item row="1" column="0"><widget class="QLabel" name="runtimeFocusStateCaption"><property name="text"><string>State</string></property></widget></item>
+         <item row="1" column="1"><widget class="QLabel" name="runtimeFocusStateLabel"><property name="text"><string>UNLOADED</string></property></widget></item>
+        </layout></widget></item>
+        <item><widget class="QGroupBox" name="runtimeFauGroup"><property name="title"><string>FAU model</string></property><layout class="QFormLayout" name="runtimeFauLayout">
+         <item row="0" column="0"><widget class="QLabel" name="runtimeFauCheckpointCaption"><property name="text"><string>Checkpoint</string></property></widget></item>
+         <item row="0" column="1"><widget class="QComboBox" name="runtimeFauCheckpointCombo"><property name="editable"><bool>true</bool></property><property name="placeholderText"><string>Select a compatible FAU checkpoint</string></property></widget></item>
+         <item row="1" column="0"><widget class="QLabel" name="runtimeFauStateCaption"><property name="text"><string>State</string></property></widget></item>
+         <item row="1" column="1"><widget class="QLabel" name="runtimeFauStateLabel"><property name="text"><string>UNLOADED</string></property></widget></item>
+        </layout></widget></item>
+        <item><layout class="QHBoxLayout" name="runtimeControlsLayout">
+         <item><widget class="QPushButton" name="runtimeMockLoadFocusButton"><property name="text"><string>Mock load Focus</string></property></widget></item>
+         <item><widget class="QPushButton" name="runtimeMockUnloadFocusButton"><property name="text"><string>Mock unload Focus</string></property></widget></item>
+         <item><widget class="QPushButton" name="runtimeMockLoadFauButton"><property name="text"><string>Mock load FAU</string></property></widget></item>
+         <item><widget class="QPushButton" name="runtimeMockUnloadFauButton"><property name="text"><string>Mock unload FAU</string></property></widget></item>
+        </layout></item>
+        <item><layout class="QHBoxLayout" name="runtimeInferenceControlsLayout">
+         <item><widget class="QLabel" name="runtimeCameraCaption"><property name="text"><string>Camera role</string></property></widget></item>
+         <item><widget class="QComboBox" name="runtimeCameraCombo"><item><property name="text"><string>top</string></property></item><item><property name="text"><string>side</string></property></item></widget></item>
+         <item><widget class="QPushButton" name="runtimeEnableInferenceButton"><property name="text"><string>Enable inference (unavailable)</string></property><property name="enabled"><bool>false</bool></property></widget></item>
+         <item><widget class="QPushButton" name="runtimeDisableInferenceButton"><property name="text"><string>Disable inference</string></property><property name="enabled"><bool>false</bool></property></widget></item>
+        </layout></item>
+        <item><widget class="QLabel" name="runtimeInferenceStateLabel"><property name="text"><string>Inference: DISABLED · no model is loaded</string></property></widget></item>
+        <item><widget class="QLabel" name="runtimeFocusPredictionLabel"><property name="text"><string>Focus prediction: unavailable</string></property></widget></item>
+        <item><widget class="QLabel" name="runtimeFauPredictionLabel"><property name="text"><string>FAU keypoints: unavailable</string></property></widget></item>
+        <item><widget class="QLabel" name="runtimeConfidenceLabel"><property name="text"><string>Confidence: unavailable</string></property></widget></item>
+        <item><widget class="QLabel" name="runtimeRoiStatusLabel"><property name="text"><string>ROI overlay: unavailable</string></property></widget></item>
+        <item><widget class="QLabel" name="runtimeTimingLabel"><property name="text"><string>Inference timing: unavailable</string></property></widget></item>
+        <item><spacer name="runtimeSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer></item>
        </layout>
       </widget>
      </widget>

@@ -1,0 +1,7 @@
+{
+  "focus_directory": "models/focus",
+  "fau_directory": "models/fau",
+  "runtime_mode": "unavailable-until-compatible-checkpoint",
+  "focus_inference_enabled": false,
+  "fau_inference_enabled": false
+}

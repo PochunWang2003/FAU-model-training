@@ -1,5 +1,5 @@
 #include "trainingserver.h"
-#include "motion/SimulatedMotionFeedbackProvider.h"
+#include "motion/SimulatedMotionBackend.h"
 
 #include <QDateTime>
 #include <QBuffer>
@@ -25,9 +25,10 @@ TrainingServer::TrainingServer(const QString &projectRoot, QObject *parent)
     : QObject(parent), m_projectRoot(QFileInfo(projectRoot).absoluteFilePath())
 {
     m_workerScript = QDir(QCoreApplication::applicationDirPath()).absoluteFilePath("../../ML/workers/train.py");
-    auto simulatedProvider = std::make_unique<SimulatedMotionFeedbackProvider>();
-    m_simulatedMotionFeedback = simulatedProvider.get();
-    m_motionFeedback = std::move(simulatedProvider);
+    auto simulatedBackend = std::make_unique<SimulatedMotionBackend>();
+    m_simulatedMotionBackend = simulatedBackend.get();
+    m_motionBackend = std::move(simulatedBackend);
+    m_cameraService = std::make_unique<SyntheticCameraService>();
     QDir().mkpath(m_projectRoot + "/data/focus");
     QDir().mkpath(m_projectRoot + "/data/fau");
     QDir().mkpath(m_projectRoot + "/models/focus");
@@ -133,23 +134,6 @@ QString TrainingServer::datasetPath(const QString &kind, const QString &id) cons
     return m_projectRoot + "/data/" + kind + "/" + id;
 }
 
-QImage TrainingServer::syntheticFrame(const QString &role, int seed, bool focusDemo) const
-{
-    const int width = 160;
-    const int height = 120;
-    QImage image(width, height, QImage::Format_Grayscale8);
-    for (int y = 0; y < height; ++y) {
-        uchar *line = image.scanLine(y);
-        for (int x = 0; x < width; ++x) {
-            int value = 20 + ((x * 3 + y * 5 + seed * 11) % 40);
-            if ((x / 8 + y / 8 + seed) % 2 == 0) value += focusDemo ? 170 : 90;
-            value += (role == "side" ? (x / 4) : (y / 4)) % 20;
-            line[x] = static_cast<uchar>(qBound(0, value, 255));
-        }
-    }
-    return image;
-}
-
 bool TrainingServer::writePgm(const QImage &image, const QString &path) const
 {
     const QImage gray = image.convertToFormat(QImage::Format_Grayscale8);
@@ -179,7 +163,7 @@ bool TrainingServer::createDataset(const QString &kind, const QString &id, int c
     }
     for (int i = 0; i < count; ++i) {
         const QString filename = QString("sample_%1.pgm").arg(i, 4, 10, QLatin1Char('0'));
-        QImage sample = syntheticFrame(i % 2 ? "top" : "side", i, true);
+        QImage sample = m_cameraService->AcquireSnapshot(i % 2 ? "top" : "side", i, true);
         if (i % 2 != 0) {
             const QImage original = sample;
             for (int y = 1; y < sample.height() - 1; ++y) for (int x = 1; x < sample.width() - 1; ++x) {
@@ -205,15 +189,19 @@ bool TrainingServer::createDataset(const QString &kind, const QString &id, int c
 
 QJsonObject TrainingServer::status() const
 {
-    return {{"server", "ready"}, {"port", m_listener.serverPort()}, {"camera_backend", "synthetic"},
+    const CameraServiceStatus cameraStatus = m_cameraService->Status("top");
+    return {{"server", "ready"}, {"port", m_listener.serverPort()}, {"camera_backend", cameraStatus.backend},
+            {"camera_status", cameraStatus.availability},
             {"training_state", m_worker ? "RUNNING" : "IDLE"}, {"active_run_id", m_activeRunId},
             {"active_task", m_activeTask}, {"motion_mode", "simulation-only"},
-            {"motion_feedback", m_motionFeedback->ReadSnapshot().ToJson()}};
+            {"motion_feedback", m_motionBackend->ReadSnapshot().ToJson()},
+            {"motion_backend", m_motionBackend->BackendId()},
+            {"motion_backend_status", m_motionBackend->Availability()}};
 }
 
 QJsonObject TrainingServer::poseMap() const
 {
-    const MotionFeedbackSnapshot snapshot = m_motionFeedback->ReadSnapshot();
+    const MotionFeedbackSnapshot snapshot = m_motionBackend->ReadSnapshot();
     const QStringList axes{QStringLiteral("X"), QStringLiteral("Y"), QStringLiteral("Z"),
                            QStringLiteral("RX"), QStringLiteral("RY"), QStringLiteral("RZ")};
     QJsonObject values;
@@ -266,7 +254,7 @@ QString TrainingServer::validateMotion(const QJsonObject &request) const
     const double speed = request.value("speed").toDouble();
     if (!std::isfinite(target) || !std::isfinite(speed)) return "target and speed must be finite numbers";
     const QJsonObject limits = m_limits.value("axes").toObject().value(axis).toObject();
-    const double current = m_motionFeedback->Position(axis);
+    const double current = m_motionBackend->Position(axis);
     if (target < limits.value("min").toDouble() || target > limits.value("max").toDouble()) return "target is outside the configured position envelope";
     if (std::abs(target - current) > limits.value("max_excursion").toDouble()) return "requested excursion exceeds the configured maximum";
     if (std::abs(target - current) > limits.value("max_step").toDouble()) return "requested step exceeds the configured maximum";
@@ -298,8 +286,21 @@ void TrainingServer::processMessage(QTcpSocket *socket, const QJsonObject &messa
         if (m_worker && (!m_jobClient || m_jobClient->state() != QAbstractSocket::ConnectedState)) m_jobClient = socket;
         respond(socket, requestId, command, status()); return;
     }
+    if (command == "MODEL_RUNTIME_STATUS") {
+        respond(socket, requestId, command, m_runtimeRegistry.Status()); return;
+    }
+    if (command == "MODEL_RUNTIME_MOCK_LOAD" || command == "MODEL_RUNTIME_MOCK_UNLOAD") {
+        const QString kind = payload.value("kind").toString();
+        const bool loaded = command == "MODEL_RUNTIME_MOCK_LOAD";
+        if (!m_runtimeRegistry.SetMockLoaded(kind, loaded)) {
+            respond(socket, requestId, command, {}, false, "kind must be focus or fau"); return;
+        }
+        respond(socket, requestId, command, m_runtimeRegistry.Status()); return;
+    }
     if (command == "CAMERA_LIST") {
-        respond(socket, requestId, command, {{"cameras", QJsonArray{QJsonObject{{"id","synthetic-0"},{"role","top"},{"state","available"}}, QJsonObject{{"id","synthetic-1"},{"role","side"},{"state","available"}}}}}); return;
+        respond(socket, requestId, command, {{"backend", "synthetic"}, {"ownership", "server-shared-service"},
+            {"cameras", QJsonArray{QJsonObject{{"id","synthetic-0"},{"role","top"},{"state","SIMULATED"}},
+                                    QJsonObject{{"id","synthetic-1"},{"role","side"},{"state","SIMULATED"}}}}}); return;
     }
     if (command == "CAMERA_OPEN" || command == "CAMERA_CLOSE") {
         const QString role = payload.value("role").toString("top");
@@ -334,7 +335,8 @@ void TrainingServer::processMessage(QTcpSocket *socket, const QJsonObject &messa
         const QString path = datasetPath(kind, id);
         if (!validId(id) || (kind != "focus" && kind != "fau") || (role != "top" && role != "side") || !QFileInfo(path).isDir()) { respond(socket, requestId, command, {}, false, "dataset, kind, or role is invalid"); return; }
         const QString filename = QString("capture_%1.pgm").arg(QDateTime::currentMSecsSinceEpoch());
-        if (!writePgm(syntheticFrame(role, static_cast<int>(QDateTime::currentMSecsSinceEpoch() % 1000), true), path + "/" + filename)) { respond(socket, requestId, command, {}, false, "capture could not be saved"); return; }
+        const QImage frame = m_cameraService->AcquireSnapshot(role, static_cast<int>(QDateTime::currentMSecsSinceEpoch() % 1000), true);
+        if (frame.isNull() || !writePgm(frame, path + "/" + filename)) { respond(socket, requestId, command, {}, false, "capture could not be saved"); return; }
         QFile manifest(path + "/manifest.jsonl");
         if (manifest.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
             QJsonObject row{{"image", filename}, {"role", role}, {"timestamp", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)}, {"label", QJsonValue(QJsonValue::Null)}, {"split", "train"}, {"synthetic_demo_only", true}, {"schema_version", 1}};
@@ -506,7 +508,42 @@ void TrainingServer::processMessage(QTcpSocket *socket, const QJsonObject &messa
         respond(socket, requestId, command, {{"run_id", m_activeRunId}, {"state", "CANCELLING"}}); return;
     }
     if (command == "MOTION_LIMIT_GET") { respond(socket, requestId, command, m_limits); return; }
-    if (command == "MOTION_FEEDBACK_GET") { respond(socket, requestId, command, m_motionFeedback->ReadSnapshot().ToJson()); return; }
+    if (command == "MOTION_FEEDBACK_GET") { respond(socket, requestId, command, m_motionBackend->ReadSnapshot().ToJson()); return; }
+    if (command == "MOTION_BACKEND_STATUS") {
+        respond(socket, requestId, command, {{"backend", m_motionBackend->BackendId()},
+            {"availability", m_motionBackend->Availability()}, {"machine_state", m_motionBackend->ReadMachineState()},
+            {"motion_status", m_motionBackend->ReadMotionStatus()}, {"physical_control_enabled", false}}); return;
+    }
+    if (command == "MOTION_BACKEND_LIST") {
+        respond(socket, requestId, command, {{"selected", m_motionBackend->BackendId()},
+            {"backends", QJsonArray{QJsonObject{{"id", "simulated"}, {"availability", "SIMULATED"}},
+                                    QJsonObject{{"id", "nec"}, {"availability", "UNAVAILABLE"}},
+                                    QJsonObject{{"id", "gmrt"}, {"availability", "UNAVAILABLE"}}}},
+            {"physical_control_enabled", false}}); return;
+    }
+    if (command == "MOTION_BACKEND_SELECT") {
+        const QString backend = payload.value("backend").toString();
+        if (backend != "simulated") {
+            respond(socket, requestId, command, {}, false,
+                    "only the simulated backend is selectable in this build"); return;
+        }
+        respond(socket, requestId, command, {{"selected", "simulated"}, {"physical_control_enabled", false}}); return;
+    }
+    if (command == "MOTION_INITIALIZE" || command == "MOTION_SHUTDOWN" || command == "MOTION_SERVO_ON" ||
+        command == "MOTION_SERVO_OFF" || command == "MOTION_FAULT_RESET" || command == "MOTION_HOME" ||
+        command == "MOTION_MOVEL" || command == "MOTION_STOP") {
+        MotionBackendResult result;
+        if (command == "MOTION_INITIALIZE") result = m_motionBackend->Initialize();
+        else if (command == "MOTION_SHUTDOWN") result = m_motionBackend->Shutdown();
+        else if (command == "MOTION_SERVO_ON") result = m_motionBackend->ServoOn();
+        else if (command == "MOTION_SERVO_OFF") result = m_motionBackend->ServoOff();
+        else if (command == "MOTION_FAULT_RESET") result = m_motionBackend->ResetFault();
+        else if (command == "MOTION_HOME") result = m_motionBackend->Home(payload);
+        else if (command == "MOTION_MOVEL") result = m_motionBackend->MoveL(payload);
+        else result = m_motionBackend->CancelStop();
+        respond(socket, requestId, command, {{"availability", result.availability},
+            {"backend", m_motionBackend->BackendId()}}, result.accepted, result.message); return;
+    }
     if (command == "MOTION_LIMIT_VALIDATE" || command == "MOTION_LIMIT_SAVE") {
         const QJsonObject proposed = payload.value("limits").toObject();
         const QString error = validateLimits(proposed);
@@ -521,9 +558,9 @@ void TrainingServer::processMessage(QTcpSocket *socket, const QJsonObject &messa
     if (command == "MOTION_SIMULATE") {
         const QString error = validateMotion(payload);
         if (!error.isEmpty()) { respond(socket, requestId, command, {}, false, error); return; }
-        m_simulatedMotionFeedback->SetSimulatedPosition(payload.value("axis").toString(), payload.value("target").toDouble());
+        m_simulatedMotionBackend->SetSimulatedPosition(payload.value("axis").toString(), payload.value("target").toDouble());
         respond(socket, requestId, command, {{"simulation_only", true}, {"positions", poseMap()},
-            {"motion_feedback", m_motionFeedback->ReadSnapshot().ToJson()}}); return;
+            {"motion_feedback", m_motionBackend->ReadSnapshot().ToJson()}}); return;
     }
     if (command == "TRAINING_RUNS") {
         QJsonArray runs; QDir dir(m_projectRoot + "/runs");
@@ -552,7 +589,8 @@ void TrainingServer::sendPreviewFrames()
     for (auto it = m_streamingRoles.begin(); it != m_streamingRoles.end(); ++it) {
         QTcpSocket *socket = it.key();
         for (const QString &role : it.value()) {
-            const QImage image = syntheticFrame(role, static_cast<int>(QDateTime::currentMSecsSinceEpoch() / 400), false);
+            const QImage image = m_cameraService->AcquireSnapshot(role, static_cast<int>(QDateTime::currentMSecsSinceEpoch() / 400), false);
+            if (image.isNull()) continue;
             QByteArray bytes; QBuffer buffer(&bytes); buffer.open(QIODevice::WriteOnly); image.save(&buffer, "PNG");
             emitEvent(socket, "CAMERA_FRAME", {{"role", role}, {"width", image.width()}, {"height", image.height()}, {"format", "PNG"}, {"image_base64", QString::fromLatin1(bytes.toBase64())}});
         }

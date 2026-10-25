@@ -1,0 +1,13 @@
+{
+  "selected_backend": "simulated",
+  "physical_motion_enabled": false,
+  "nec": {
+    "availability": "UNAVAILABLE",
+    "local_reference_required": true,
+    "proprietary_dependencies_required": true
+  },
+  "gmrt": {
+    "availability": "UNAVAILABLE",
+    "hardware_validation_required": true
+  }
+}

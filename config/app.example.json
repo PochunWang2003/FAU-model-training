@@ -2,5 +2,9 @@
   "server_host": "127.0.0.1",
   "server_port": 8097,
   "max_message_bytes": 1048576,
-  "camera_backend": "synthetic"
+  "camera_backend": "synthetic",
+  "motion_backend": "simulated",
+  "physical_motion_enabled": false,
+  "motion_compatibility_port": 8087,
+  "motion_compatibility_enabled": false
 }

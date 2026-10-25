@@ -25,6 +25,7 @@ private slots:
     QJsonObject motionLimitsFromTable() const;
     void applyMotionLimits(const QJsonObject &limits);
     void applyMotionFeedback(const QJsonObject &feedback);
+    void applyRuntimeStatus(const QJsonObject &status);
 
 private:
     Ui::MainWindow *ui;

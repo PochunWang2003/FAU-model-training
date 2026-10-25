@@ -1,27 +1,32 @@
-# Build and run
+# Build and offline verification
 
-The build helper uses `qmake6` (falling back to `qmake`) and `make`; it does not install packages. It builds independent server and UI targets into `build/server` and `build/ui`.
+## Offline build
+
+The normal public build uses only the Qt development tools already installed on the system and Python's standard library for offline baselines. It does not require the external original Qt source, NEC dependencies, GMRT, Basler pylon, PyTorch, or CUDA.
+
+From the repository root:
 
 ```sh
 python3 scripts/build.py
-```
-
-Run the Qt server in one terminal:
-
-```sh
-python3 scripts/run_server.py
-```
-
-The optional first argument changes the port, for example `python3 scripts/run_server.py 8098`. The server binds to loopback. Run the UI in another terminal:
-
-```sh
-python3 scripts/run_ui.py
-```
-
-Run build plus offline integration tests:
-
-```sh
 python3 scripts/test.py
 ```
 
-Use the Focus Training tab: connect, create `focus_demo`, then select Start focus training. The server creates and supervises the worker; epoch loss and accuracy arrive over TCP. The FAU tab can create `fau_demo`, save keypoints, assign train/validation/test splits, and start either the pretrained ResNet18 keypoint workflow or deterministic offline baseline. Pretrained workflows require compatible PyTorch and torchvision; they were not available in the verification environment. A display server is needed for interactive UI use; tests use Qt's offscreen platform plugin for startup only.
+Build outputs are placed under ignored `build/server` and `build/ui` directories. Tests use synthetic images and simulated motion only. A passing offline suite does not validate machine motion, Basler acquisition, PREEMPT_RT timing, pretrained model execution, or GMRT hardware behavior.
+
+## Optional external Qt reference build
+
+Keep the original archive/source outside the repository. If an authorized local source tree is available, build its `.pro` file separately:
+
+```sh
+python3 scripts/build_original_qt_reference.py --project-file /path/to/external/qt-ui/qt-ui.pro
+```
+
+The helper rejects a project path inside this repository and writes generated files under ignored `build/original-motion-ui` by default. It does not copy source or binaries into Git. It may fail if Qt modules, proprietary libraries, or other local dependencies are unavailable. It builds a separate reference application, not the unified server.
+
+## External blockers
+
+- Original Qt source ownership/redistribution rights have not been confirmed.
+- NEC proprietary headers/libraries are not included and no physical NEC adapter is enabled.
+- GMRT hardware integration has not been authorized or validated.
+- Basler pylon is not integrated.
+- PyTorch/torchvision and pretrained model execution depend on the host environment and cached weights.

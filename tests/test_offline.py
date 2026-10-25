@@ -273,6 +273,44 @@ class QtServerIntegrationTests(unittest.TestCase):
         self.assertTrue(accepted["payload"]["simulation_only"])
         self.assertEqual(accepted["payload"]["motion_feedback"]["pose"][0], 0.1)
 
+    def test_physical_backends_are_unavailable_and_commands_fail_closed(self):
+        status = self.command("MOTION_BACKEND_STATUS")["payload"]
+        self.assertEqual(status["backend"], "simulated")
+        self.assertFalse(status["physical_control_enabled"])
+        backends = self.command("MOTION_BACKEND_LIST")["payload"]["backends"]
+        self.assertEqual({row["id"]: row["availability"] for row in backends},
+                         {"simulated": "SIMULATED", "nec": "UNAVAILABLE", "gmrt": "UNAVAILABLE"})
+        for command, payload in (("MOTION_SERVO_ON", {}), ("MOTION_HOME", {}),
+                                 ("MOTION_MOVEL", {"pose": [0, 0, 0, 0, 0, 0]})):
+            reply = self.command(command, payload)
+            self.assertFalse(reply["ok"], reply)
+            self.assertIn("SIMULATED", reply["payload"]["availability"])
+        unavailable = self.command("MOTION_BACKEND_SELECT", {"backend": "nec"})
+        self.assertFalse(unavailable["ok"])
+
+    def test_camera_roles_share_server_owned_service(self):
+        cameras = self.command("CAMERA_LIST")["payload"]
+        self.assertEqual(cameras["ownership"], "server-shared-service")
+        self.assertEqual(cameras["backend"], "synthetic")
+        self.assertEqual({row["role"] for row in cameras["cameras"]}, {"top", "side"})
+        self.assertTrue(all(row["state"] == "SIMULATED" for row in cameras["cameras"]))
+        status = self.command("GET_STATUS")["payload"]
+        self.assertEqual(status["camera_backend"], "synthetic")
+        self.assertEqual(status["camera_status"], "SIMULATED")
+
+    def test_mock_runtime_state_transitions_do_not_load_models(self):
+        status = self.command("MODEL_RUNTIME_STATUS")["payload"]
+        self.assertEqual(status["mode"], "mock-only")
+        self.assertEqual(status["focus"]["state"], "UNLOADED")
+        loaded = self.command("MODEL_RUNTIME_MOCK_LOAD", {"kind": "focus"})["payload"]
+        self.assertEqual(loaded["focus"]["state"], "MOCK_LOADED")
+        self.assertFalse(loaded["focus"]["checkpoint_read"])
+        self.assertFalse(loaded["focus"]["inference_enabled"])
+        self.assertEqual(loaded["fau"]["state"], "UNLOADED")
+        unloaded = self.command("MODEL_RUNTIME_MOCK_UNLOAD", {"kind": "focus"})["payload"]
+        self.assertEqual(unloaded["focus"]["state"], "UNLOADED")
+        self.assertFalse(self.command("MODEL_RUNTIME_MOCK_LOAD", {"kind": "other"})["ok"])
+
     def test_widgets_application_starts_offscreen(self):
         env = os.environ.copy()
         env["QT_QPA_PLATFORM"] = "offscreen"
@@ -293,8 +331,42 @@ class QtServerIntegrationTests(unittest.TestCase):
                     "loadFauTestImagesButton", "fauCheckpointCombo", "loadFauCheckpointsButton",
                     "focusInferenceCheckpointEdit",
                     "fauInferenceCheckpointEdit", "serverHealthLabel", "futureGmrtLabel",
-                    "poseValidityLabel", "poseTargetLabel", "countSourceLabel"}
+                    "poseValidityLabel", "poseTargetLabel", "countSourceLabel",
+                    "focusTestDatasetEdit", "focusTestPageImageCombo",
+                    "focusTestPageCheckpointCombo", "fauTestPageImageCombo",
+                    "fauTestPageCheckpointCombo", "runtimeFocusStateLabel",
+                    "runtimeFauStateLabel", "runtimeInferenceStateLabel",
+                    "runtimeCameraCombo", "runtimeEnableInferenceButton",
+                    "runtimeDisableInferenceButton", "runtimeRoiStatusLabel",
+                    "machineInitializeButton", "servoOnButton", "homeButton", "moveLButton"}
         self.assertTrue(required.issubset(names), f"missing UI controls: {required - names}")
+        titles = {node.text for node in tree.iter("string") if node.text}
+        self.assertTrue({"Motion Control", "Cameras and Dataset", "Focus Training", "FAU Training",
+                         "Model Testing", "Model Runtime", "Settings and Logs"}.issubset(titles))
+        for name in ("machineInitializeButton", "servoOnButton", "homeButton", "moveLButton",
+                     "runtimeEnableInferenceButton", "runtimeDisableInferenceButton"):
+            widget = next(node for node in tree.iter("widget") if node.get("name") == name)
+            enabled = widget.find("./property[@name='enabled']/bool")
+            self.assertIsNotNone(enabled, name)
+            self.assertEqual(enabled.text, "false", name)
+
+    def test_reference_build_helper_rejects_in_repository_source(self):
+        process = subprocess.run(["python3", str(ROOT / "scripts/build_original_qt_reference.py"),
+                                  "--project-file", str(ROOT / "UI/qt-ui/qt-ui.pro")],
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        self.assertEqual(process.returncode, 2)
+        self.assertIn("must remain outside the Git repository", process.stderr)
+
+    def test_reference_build_helper_rejects_in_tree_output(self):
+        external = Path(self.temp.name) / "reference"
+        external.mkdir(exist_ok=True)
+        project = external / "qt-ui.pro"
+        project.write_text("TEMPLATE = app\n")
+        process = subprocess.run(["python3", str(ROOT / "scripts/build_original_qt_reference.py"),
+                                  "--project-file", str(project), "--build-dir", str(external / "build")],
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        self.assertEqual(process.returncode, 2)
+        self.assertIn("outside the read-only reference project", process.stderr)
 
 
 if __name__ == "__main__":

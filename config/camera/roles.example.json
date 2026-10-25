@@ -1,0 +1,9 @@
+{
+  "backend": "synthetic",
+  "physical_camera_enabled": false,
+  "roles": [
+    {"name": "top", "device_id": ""},
+    {"name": "side", "device_id": ""}
+  ],
+  "ownership": "unified-server-camera-service"
+}
