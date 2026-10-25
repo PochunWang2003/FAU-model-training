@@ -12,6 +12,7 @@
 #include <QMessageBox>
 #include <QPixmap>
 #include <QPainter>
+#include <QStandardItemModel>
 #include <QTableWidgetItem>
 
 namespace {
@@ -23,6 +24,9 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     setWindowTitle("FAU Model Training");
+    if (auto *sourceModel = qobject_cast<QStandardItemModel *>(ui->cameraSourceCombo->model())) {
+        if (QStandardItem *baslerItem = sourceModel->item(1)) baslerItem->setEnabled(false);
+    }
     ui->motionTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     const QStringList headers{"Axis", "Unit", "Minimum", "Maximum", "Excursion", "Max step", "Max speed", "Max load"};
     ui->motionTable->setHorizontalHeaderLabels(headers);
@@ -39,6 +43,7 @@ MainWindow::MainWindow(QWidget *parent)
     }
     connect(&m_socket, &QTcpSocket::connected, this, [this]() {
         ui->serverLabel->setText("Server: connected");
+        ui->serverHealthLabel->setText("READY · TCP connected");
         appendLog("Connected to training server.");
         sendCommand("HELLO");
         sendCommand("GET_STATUS");
@@ -47,6 +52,7 @@ MainWindow::MainWindow(QWidget *parent)
     });
     connect(&m_socket, &QTcpSocket::disconnected, this, [this]() {
         ui->serverLabel->setText("Server: disconnected");
+        ui->serverHealthLabel->setText("UNAVAILABLE · TCP disconnected");
         appendLog("Server connection closed.");
     });
     connect(&m_socket, &QTcpSocket::readyRead, this, &MainWindow::readServer);
@@ -58,6 +64,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->labelFocusButton, &QPushButton::clicked, this, [this]() {
         sendCommand("DATASET_LABEL", {{"kind", "focus"}, {"dataset", ui->focusDatasetEdit->text().trimmed()},
                     {"image", ui->focusImageEdit->text().trimmed()}, {"label", ui->focusLabelCombo->currentText()}});
+    });
+    connect(ui->setFocusSplitButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("DATASET_SPLIT", {{"kind", "focus"}, {"dataset", ui->focusDatasetEdit->text().trimmed()},
+                    {"image", ui->focusImageEdit->text().trimmed()}, {"split", ui->focusSplitCombo->currentText()}});
     });
     connect(ui->scoreFocusButton, &QPushButton::clicked, this, [this]() {
         sendCommand("FOCUS_SCORE", {{"dataset", ui->focusDatasetEdit->text().trimmed()}, {"image", ui->focusImageEdit->text().trimmed()}});
@@ -88,9 +98,21 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->startTopButton, &QPushButton::clicked, this, [this]() { sendCommand("CAMERA_OPEN", {{"role", "top"}}); sendCommand("CAMERA_START", {{"role", "top"}}); });
     connect(ui->startSideButton, &QPushButton::clicked, this, [this]() { sendCommand("CAMERA_OPEN", {{"role", "side"}}); sendCommand("CAMERA_START", {{"role", "side"}}); });
     connect(ui->stopCameraButton, &QPushButton::clicked, this, [this]() { sendCommand("CAMERA_STOP"); });
+    connect(ui->disconnectTopCameraButton, &QPushButton::clicked, this, [this]() { sendCommand("CAMERA_CLOSE", {{"role", "top"}}); });
+    connect(ui->disconnectSideCameraButton, &QPushButton::clicked, this, [this]() { sendCommand("CAMERA_CLOSE", {{"role", "side"}}); });
+    connect(ui->captureTopCameraButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("CAMERA_CAPTURE", {{"kind", "focus"}, {"dataset", ui->focusDatasetEdit->text().trimmed()}, {"role", "top"}});
+    });
+    connect(ui->captureSideCameraButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("CAMERA_CAPTURE", {{"kind", "focus"}, {"dataset", ui->focusDatasetEdit->text().trimmed()}, {"role", "side"}});
+    });
     connect(ui->createFauDatasetButton, &QPushButton::clicked, this, [this]() {
         m_fauDataset = ui->fauDatasetEdit->text().trimmed();
         sendCommand("DATASET_CREATE", {{"kind", "fau"}, {"dataset", m_fauDataset}, {"count", 20}});
+    });
+    connect(ui->captureFauImageButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("CAMERA_CAPTURE", {{"kind", "fau"}, {"dataset", ui->fauDatasetEdit->text().trimmed()},
+                    {"role", ui->fauRoleCombo->currentText()}});
     });
     connect(ui->saveFauAnnotationButton, &QPushButton::clicked, this, [this]() {
         QJsonArray features{QJsonObject{{"id", ui->fauFeatureIdEdit->text().trimmed()}, {"x", ui->fauXSpin->value()},
@@ -131,15 +153,55 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->evaluateFauButton, &QPushButton::clicked, this, [this]() {
         sendCommand("FAU_EVALUATE", {{"run_id", ui->evaluationRunIdEdit->text().trimmed()}});
     });
+    connect(ui->loadFocusTestImagesButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("DATASET_IMAGES", {{"kind", "focus"}, {"dataset", ui->focusDatasetEdit->text().trimmed()},
+                    {"split", ui->focusTestSplitCombo->currentText()}});
+    });
+    connect(ui->loadFauTestImagesButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("DATASET_IMAGES", {{"kind", "fau"}, {"dataset", ui->fauDatasetEdit->text().trimmed()},
+                    {"split", ui->fauTestSplitCombo->currentText()}});
+    });
+    connect(ui->loadFocusCheckpointsButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("MODEL_CHECKPOINTS", {{"kind", "focus"}});
+    });
+    connect(ui->loadFauCheckpointsButton, &QPushButton::clicked, this, [this]() {
+        sendCommand("MODEL_CHECKPOINTS", {{"kind", "fau"}});
+    });
+    connect(ui->focusCheckpointCombo, &QComboBox::currentIndexChanged, this, [this](int index) {
+        const QString checkpoint = ui->focusCheckpointCombo->itemData(index).toString();
+        if (!checkpoint.isEmpty()) ui->focusInferenceCheckpointEdit->setText(checkpoint);
+    });
+    connect(ui->fauCheckpointCombo, &QComboBox::currentIndexChanged, this, [this](int index) {
+        const QString checkpoint = ui->fauCheckpointCombo->itemData(index).toString();
+        if (!checkpoint.isEmpty()) ui->fauInferenceCheckpointEdit->setText(checkpoint);
+    });
+    connect(ui->focusTestImageCombo, &QComboBox::currentIndexChanged, this, [this](int index) {
+        const QString image = ui->focusTestImageCombo->itemData(index).toString();
+        if (!image.isEmpty()) ui->focusImageEdit->setText(image);
+    });
+    connect(ui->fauTestImageCombo, &QComboBox::currentIndexChanged, this, [this](int index) {
+        const QString image = ui->fauTestImageCombo->itemData(index).toString();
+        if (image.isEmpty()) return;
+        ui->fauImageEdit->setText(image);
+        const QString role = ui->fauTestImageCombo->itemData(index, Qt::UserRole + 1).toString();
+        const int roleIndex = ui->fauRoleCombo->findText(role);
+        if (roleIndex >= 0) ui->fauRoleCombo->setCurrentIndex(roleIndex);
+        const int testRoleIndex = ui->fauTestRoleCombo->findText(role);
+        if (testRoleIndex >= 0) ui->fauTestRoleCombo->setCurrentIndex(testRoleIndex);
+    });
     connect(ui->focusInferenceButton, &QPushButton::clicked, this, [this]() {
+        const QString selectedImage = ui->focusTestImageCombo->currentData().toString().isEmpty()
+            ? ui->focusTestImageCombo->currentText() : ui->focusTestImageCombo->currentData().toString();
         sendCommand("FOCUS_INFER", {{"dataset", ui->focusDatasetEdit->text().trimmed()},
-                    {"image", ui->focusImageEdit->text().trimmed()},
+                    {"image", selectedImage},
                     {"checkpoint", ui->focusInferenceCheckpointEdit->text().trimmed()}});
     });
     connect(ui->fauInferenceButton, &QPushButton::clicked, this, [this]() {
+        const QString selectedImage = ui->fauTestImageCombo->currentData().toString().isEmpty()
+            ? ui->fauTestImageCombo->currentText() : ui->fauTestImageCombo->currentData().toString();
         sendCommand("FAU_INFER", {{"dataset", ui->fauDatasetEdit->text().trimmed()},
-                    {"image", ui->fauImageEdit->text().trimmed()},
-                    {"role", ui->fauRoleCombo->currentText()},
+                    {"image", selectedImage},
+                    {"role", ui->fauTestRoleCombo->currentText()},
                     {"checkpoint", ui->fauInferenceCheckpointEdit->text().trimmed()}});
     });
 }
@@ -199,6 +261,12 @@ void MainWindow::handleMessage(const QJsonObject &message)
     const QJsonObject payload = message.value("payload").toObject();
     if (!message.value("ok").toBool(true)) {
         const QString error = message.value("error").toObject().value("message").toString("request failed");
+        if (event == "FOCUS_INFER") ui->focusInferenceLabel->setText("Inference failed: " + error);
+        if (event == "FAU_INFER") ui->fauInferenceLabel->setText("Inference failed: " + error);
+        if (error.contains("PyTorch", Qt::CaseInsensitive) || error.contains("torchvision", Qt::CaseInsensitive))
+            ui->modelAvailabilityLabel->setText("PyTorch unavailable · " + error);
+        else if (error.contains("weight", Qt::CaseInsensitive))
+            ui->modelAvailabilityLabel->setText("Pretrained weights not installed · " + error);
         appendLog(event + " failed: " + error);
         ui->dashboardResults->appendPlainText(event + " failed: " + error);
         return;
@@ -247,17 +315,31 @@ void MainWindow::handleMessage(const QJsonObject &message)
         ui->fauOutput->appendPlainText(summary);
         if (payload.value("task").toString() == "focus") {
             ui->focusCheckpointLabel->setText("Best checkpoint: " + payload.value("checkpoint").toString());
-            ui->focusInferenceCheckpointEdit->setText(QFileInfo(payload.value("checkpoint").toString()).fileName());
+            const QString checkpoint = QFileInfo(payload.value("checkpoint").toString()).fileName();
+            ui->focusInferenceCheckpointEdit->setText(checkpoint);
+            int index = ui->focusCheckpointCombo->findData(checkpoint);
+            if (index < 0) { ui->focusCheckpointCombo->addItem(checkpoint, checkpoint); index = ui->focusCheckpointCombo->count() - 1; }
+            ui->focusCheckpointCombo->setCurrentIndex(index);
         }
         if (payload.value("task").toString().startsWith("fau")) {
             ui->fauCheckpointLabel->setText("Best checkpoint: " + payload.value("checkpoint").toString());
-            ui->fauInferenceCheckpointEdit->setText(QFileInfo(payload.value("checkpoint").toString()).fileName());
+            const QString checkpoint = QFileInfo(payload.value("checkpoint").toString()).fileName();
+            ui->fauInferenceCheckpointEdit->setText(checkpoint);
+            int index = ui->fauCheckpointCombo->findData(checkpoint);
+            if (index < 0) { ui->fauCheckpointCombo->addItem(checkpoint, checkpoint); index = ui->fauCheckpointCombo->count() - 1; }
+            ui->fauCheckpointCombo->setCurrentIndex(index);
         }
         appendLog("Training run completed: " + payload.value("run_id").toString());
     } else if (event == "TRAINING_FAILED" || event == "TRAINING_CANCELLED") {
         ui->trainingStateLabel->setText("Training: " + event.mid(QStringLiteral("TRAINING_").size()).toLower());
-        appendLog(event + ": " + payload.value("error").toString());
+        const QString error = payload.value("error").toString();
+        if (error.contains("PyTorch", Qt::CaseInsensitive) || error.contains("torchvision", Qt::CaseInsensitive))
+            ui->modelAvailabilityLabel->setText("PyTorch unavailable · " + error);
+        else if (error.contains("weight", Qt::CaseInsensitive))
+            ui->modelAvailabilityLabel->setText("Pretrained weights not installed · " + error);
+        appendLog(event + ": " + error);
     } else if (event == "GET_STATUS" || event == "TRAINING_STATUS") {
+        ui->serverHealthLabel->setText("READY · training server responding");
         ui->trainingStateLabel->setText("Training: " + payload.value("training_state").toString());
         ui->cameraStatusLabel->setText(payload.value("camera_backend").toString());
         if (!payload.value("active_run_id").toString().isEmpty()) ui->runStatusLabel->setText(payload.value("active_run_id").toString());
@@ -276,6 +358,34 @@ void MainWindow::handleMessage(const QJsonObject &message)
         ui->focusLog->appendPlainText("Variance of Laplacian score: " + score + " (traditional baseline, not trained model)");
     } else if (event == "TRAINING_RUNS") {
         ui->resultsOutput->setPlainText(QString::fromUtf8(QJsonDocument(payload.value("runs").toArray()).toJson(QJsonDocument::Indented)));
+    } else if (event == "DATASET_IMAGES") {
+        const bool focus = payload.value("kind").toString() == "focus";
+        QComboBox *selector = focus ? ui->focusTestImageCombo : ui->fauTestImageCombo;
+        selector->clear();
+        for (const QJsonValue &value : payload.value("images").toArray()) {
+            const QJsonObject row = value.toObject();
+            const QString image = row.value("image").toString();
+            const QString label = row.value("label").toString();
+            const QString role = row.value("role").toString();
+            const QString detail = QStringLiteral("%1 · %2%3").arg(image, role,
+                label.isEmpty() ? QString() : QStringLiteral(" · ") + label);
+            selector->addItem(detail, image);
+            selector->setItemData(selector->count() - 1, role, Qt::UserRole + 1);
+        }
+        if (selector->count() == 0) selector->addItem("No images in selected split", QString());
+        appendLog(QString("Loaded %1 %2 image(s) from split %3")
+            .arg(selector->count()).arg(focus ? "focus" : "FAU")
+            .arg(focus ? ui->focusTestSplitCombo->currentText() : ui->fauTestSplitCombo->currentText()));
+    } else if (event == "MODEL_CHECKPOINTS") {
+        const bool focus = payload.value("kind").toString() == "focus";
+        QComboBox *selector = focus ? ui->focusCheckpointCombo : ui->fauCheckpointCombo;
+        selector->clear();
+        for (const QJsonValue &value : payload.value("checkpoints").toArray()) {
+            const QString checkpoint = value.toString();
+            selector->addItem(checkpoint, checkpoint);
+        }
+        if (selector->count() == 0) selector->addItem("No server checkpoints found", QString());
+        appendLog(QString("Loaded %1 %2 checkpoint(s)").arg(selector->count()).arg(focus ? "focus" : "FAU"));
     } else if (event == "FOCUS_EVALUATE" || event == "FAU_EVALUATE" || event == "TRAINING_RESULT") {
         ui->resultsOutput->appendPlainText(event + ":\n" + QString::fromUtf8(QJsonDocument(payload).toJson(QJsonDocument::Indented)));
     } else if (event == "FOCUS_INFER" || event == "FAU_INFER") {
@@ -304,6 +414,10 @@ void MainWindow::handleMessage(const QJsonObject &message)
         } else {
             ui->focusInferenceLabel->setText(QString("%1 · confidence %2")
                 .arg(payload.value("label").toString()).arg(payload.value("confidence").toDouble(),0,'f',3));
+            ui->focusInferenceLabel->setText(ui->focusInferenceLabel->text() +
+                QString(" · sharp %1% · blurred %2%")
+                    .arg(payload.value("sharp_probability").toDouble() * 100.0, 0, 'f', 1)
+                    .arg((1.0 - payload.value("sharp_probability").toDouble()) * 100.0, 0, 'f', 1));
         }
         preview->setPixmap(pixmap);
     } else if (event == "FAU_ANNOTATION_SAVE") {
@@ -312,12 +426,27 @@ void MainWindow::handleMessage(const QJsonObject &message)
         appendLog("Created " + payload.value("kind").toString() + " dataset " + payload.value("dataset").toString());
         if (payload.value("kind").toString() == "focus") ui->datasetStatusLabel->setText(payload.value("dataset").toString() + " (synthetic demo)");
     } else if (event == "CAMERA_CAPTURE") {
-        ui->focusImageEdit->setText(payload.value("image").toString());
+        const QString image = payload.value("image").toString();
+        if (payload.value("kind").toString() == "fau") {
+            ui->fauImageEdit->setText(image);
+            ui->fauRoleCombo->setCurrentText(payload.value("role").toString());
+            ui->fauTestImageCombo->addItem(image, image);
+            ui->fauTestImageCombo->setItemData(ui->fauTestImageCombo->count() - 1, payload.value("role").toString(), Qt::UserRole + 1);
+            ui->fauTestImageCombo->setCurrentIndex(ui->fauTestImageCombo->count() - 1);
+        } else {
+            ui->focusImageEdit->setText(image);
+            ui->focusTestImageCombo->addItem(image, image);
+            ui->focusTestImageCombo->setCurrentIndex(ui->focusTestImageCombo->count() - 1);
+        }
         appendLog("Synthetic frame saved to dataset as " + payload.value("image").toString());
     } else if (event == "DATASET_IMPORT") {
         appendLog("Imported " + QString::number(payload.value("imported").toInt()) + " image(s) into " + payload.value("dataset").toString());
     } else if (event == "SERVER_LOG") {
         appendLog(payload.value("message").toString());
+    } else if (event == "CAMERA_OPEN" || event == "CAMERA_CLOSE" || event == "CAMERA_START" || event == "CAMERA_STOP") {
+        ui->cameraRoleStatusLabel->setText(QString("Synthetic backend · %1 %2")
+            .arg(payload.value("role").toString("TOP/SIDE"), payload.value("state").toString("ready")));
+        appendLog(event + " acknowledged for " + payload.value("role").toString("all roles"));
     } else {
         appendLog(event + " accepted");
     }
@@ -371,6 +500,7 @@ void MainWindow::applyMotionFeedback(const QJsonObject &feedback)
             ? QString::number(counts.at(index).toDouble(), 'f', 0) : QStringLiteral("—"));
     }
     ui->poseSourceLabel->setText(poseState + (poseState == "REAL" ? " · GMRT provider" : " · simulated provider; not hardware feedback"));
+    ui->poseValidityLabel->setText("Position validity: " + poseState + (poseState == "SIMULATED" ? " only" : ""));
     const QString countState = feedback.value("raw_count_source").toString("UNAVAILABLE");
     ui->countSourceLabel->setText(countState == "UNAVAILABLE"
         ? QStringLiteral("UNAVAILABLE · no encoder-count provider")

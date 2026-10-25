@@ -1,32 +1,28 @@
 # Qt reference hierarchy comparison
 
-## Source identity and limitation
+## Reference source inspected
 
-The requested `qt-server(20261022-005017)(2).zip` was not present in the accessible Desktop, Downloads, `/home/user` upload search, or `/mnt/data` (the latter path does not exist). The existing ignored `.reference/qt-server(20261022-005017)/` extraction is from the earlier archive without the `(2)` suffix. That earlier extraction contains both complete-looking `qt-server/qt-server` and `qt-ui(20261022-005118)/qt-ui` source trees, including all the named Qt UI forms and C++ source. It is read-only and is used below only as a provisional hierarchy reference. Its contents are not asserted to match the newly requested archive revision. No legacy source is copied into this project.
+The reference archive is `/home/user/Desktop/qt-server(20261022-005017).zip`. The Qt UI files are nested under:
 
-The comparison below was completed before editing the FAU Designer UI in this branch. The current `mainwindow.ui` already had an uncommitted formatting/XML expansion when work began; it is preserved.
+`.reference/qt-server(20261022-005017)/qt-ui(20261022-005118)/qt-ui/`
 
-## Observed original hierarchy
+Inspected sources include `mainwindow.ui`, `mainwindow.cpp`, `mainwindow.h`, and the forms `ui/camerawindow.ui`, `ui/graphform.ui`, `ui/plotwindow.ui`, and `ui/settingsform.ui`. The archive and original source tree were not modified. The extracted reference is ignored by Git.
 
-In the earlier extracted reference, the main window contains 705 widgets and 71 group boxes. Its top-level motion workspace places `Pose` (`groupPoseBox`) and `Count (Axis)` (`groupCountBox`) together. Pose uses a fixed six-axis X/Y/Z/RX/RY/RZ grid and `comboLivePoseMode` for Machine Pose or Tool Pose. Raw count uses a separate six-field row (`lineCountAxis1` through `lineCountAxis6`). `Camera Status`, `Camera Control`, `Visual Servoing Control`, `Visual Servoing Parameters`, `Camera to Machine Calibration`, `Initial Position inside Camera ROI`, and `Logging` are separate groups. Additional tabs and nested groups contain machine-specific motion parameters.
+## Original layout concepts
 
-The reference `UpdateLivePose` stores the received six-value pose in either simulation or real arrays, then refreshes the selected pose fields. Raw counts are stored and rendered through separate simulation/real caches. This separation is useful as a display and ownership pattern. The FAU prototype will not import those legacy motion commands or label synthetic values as real telemetry.
+The original `mainwindow.ui` is a large motion-control workspace. Its left telemetry area places the six-axis pose fields and the separate `Count (Axis)` fields in aligned groups. The motion pages use stacked pages for machine parameters and camera/visual-servoing setup. Camera settings are separated into camera status, camera controls, role-specific previews, camera calibration, and initial pose inside the camera ROI. Logging and plot panels are distinct side panels. The separate camera form displays TOP and SIDE previews together; the settings form organizes exposure and gain by camera role; the graph and plot forms provide reusable graph presentation.
 
-The reference client uses `QTcpSocket`, `readyRead`, and newline-delimited legacy text commands. The FAU application retains its versioned JSON training protocol; only the client/server separation and camera/status presentation pattern are reused.
+The original `mainwindow.cpp` and `.h` confirm that these widgets are connected to physical machine, servo, camera, calibration, and motion-server operations. Those operations and legacy text protocol are not copied into this project.
 
-## Current FAU hierarchy
+## FAU application adaptation
 
-Before this update, the FAU UI had 92 widgets and six group boxes: `System status`, `Recent result and project notes`, `Dataset management`, the focus training group, FAU annotation, and simulated move request. The tabs were Dashboard, Live Camera, Focus Training, FAU Training, Training Results, Motion Limits, and Logs. Pose and raw-count displays were absent. Focus and FAU operations were already separate, but the focus model was the offline logistic baseline and the FAU run was a deterministic baseline check.
+- Dashboard adapts the aligned six-axis pose pattern and separate six-field `Count (Axis)` layout. Pose values come from the server's simulated motion provider; validity and source are shown. Raw counts remain `UNAVAILABLE`.
+- Live Camera adapts the paired TOP/SIDE preview layout, role mapping, status, and calibration separation. Only the synthetic backend is operational. Basler and physical camera controls are unavailable.
+- Focus and FAU tabs separate dataset preparation, model training, testing/inference, and metrics. The focus tab selects between the statistical baseline and pretrained MobileNetV3-Small configuration. The FAU tab keeps the deterministic gradient-centroid baseline separate from the ResNet18 heatmap model configuration.
+- Motion Limits keeps editable simulation envelopes and sends validation to the server. It is not a set of approved physical safety limits.
+- Training Results, responsive loss charts, and the persistent log panel adapt the reference's separate plot and logging panels.
+- Dataset workflows use versioned JSON over the training TCP protocol. No legacy motion command is used.
 
-## Reuse and adaptation map
+## Current limitations
 
-- Pose group: adapt as a fixed-alignment six-axis feedback panel. Its source badge must say `SIMULATED`; a future provider may report `REAL` only when supplied by GMRT. The prototype has no GMRT provider.
-- Count (Axis): preserve as a separate six-axis raw-count panel. Until a provider supplies counts, display `UNAVAILABLE`; never derive or label invented encoder counts as real.
-- Camera Status and Camera Control: adapt to explicit TOP/SIDE synthetic or file source state and separate operational start/stop/capture controls.
-- Visual Servoing Control and Visual Servoing Parameters: reuse the visual separation between operations and parameter editing, replacing servo actions with independent focus and FAU training workflows.
-- Camera to Machine Calibration: adapt to a calibration status/configuration group that remains `UNCONFIGURED` until measured calibration data is supplied. Do not provide invented mm/degree scale constants.
-- Camera ROI limits: adapt to editable pixel-space ROI fields and ROI validation for annotations.
-- Logging: retain a persistent central event log for network, dataset, camera, worker, and validation messages.
-- Machine-specific movement and servo groups: omit. Only server-validated simulated position requests remain.
-
-The requested `(2)` archive should still be checked when it becomes available. If it differs from the earlier extracted revision, this document and the visual mapping should be reconciled against that exact source before treating the comparison as revision-accurate.
+The project has no GMRT, EtherCAT, servo, physical movement, encoder feedback, Basler pylon, or camera-to-machine calibration integration. FAU errors are pixel-coordinate metrics unless valid calibration is supplied by a future provider. Pretrained PyTorch workflows report missing dependencies or weights and must not be represented as successful inference when unavailable. Synthetic frames and simulated pose are explicitly identified as such.

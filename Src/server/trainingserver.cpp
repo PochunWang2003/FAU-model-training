@@ -301,7 +301,18 @@ void TrainingServer::processMessage(QTcpSocket *socket, const QJsonObject &messa
     if (command == "CAMERA_LIST") {
         respond(socket, requestId, command, {{"cameras", QJsonArray{QJsonObject{{"id","synthetic-0"},{"role","top"},{"state","available"}}, QJsonObject{{"id","synthetic-1"},{"role","side"},{"state","available"}}}}}); return;
     }
-    if (command == "CAMERA_OPEN" || command == "CAMERA_CLOSE") { respond(socket, requestId, command, {{"state", command == "CAMERA_OPEN" ? "open" : "closed"}, {"backend", "synthetic"}}); return; }
+    if (command == "CAMERA_OPEN" || command == "CAMERA_CLOSE") {
+        const QString role = payload.value("role").toString("top");
+        if (role != "top" && role != "side") { respond(socket, requestId, command, {}, false, "role must be top or side"); return; }
+        if (command == "CAMERA_CLOSE") {
+            m_streamingRoles[socket].remove(role);
+            bool anyStreaming = false;
+            for (auto it = m_streamingRoles.cbegin(); it != m_streamingRoles.cend(); ++it) anyStreaming = anyStreaming || !it.value().isEmpty();
+            if (!anyStreaming) m_previewTimer.stop();
+        }
+        respond(socket, requestId, command, {{"state", command == "CAMERA_OPEN" ? "open" : "closed"},
+            {"role", role}, {"backend", "synthetic"}}); return;
+    }
     if (command == "CAMERA_START") {
         const QString role = payload.value("role").toString("top");
         if (role != "top" && role != "side") { respond(socket, requestId, command, {}, false, "role must be top or side"); return; }
@@ -311,7 +322,9 @@ void TrainingServer::processMessage(QTcpSocket *socket, const QJsonObject &messa
     }
     if (command == "CAMERA_STOP") {
         m_streamingRoles[socket].clear();
-        if (m_streamingRoles.isEmpty()) m_previewTimer.stop();
+        bool anyStreaming = false;
+        for (auto it = m_streamingRoles.cbegin(); it != m_streamingRoles.cend(); ++it) anyStreaming = anyStreaming || !it.value().isEmpty();
+        if (!anyStreaming) m_previewTimer.stop();
         respond(socket, requestId, command, {{"state", "stopped"}}); return;
     }
     if (command == "CAMERA_CAPTURE") {
@@ -327,7 +340,7 @@ void TrainingServer::processMessage(QTcpSocket *socket, const QJsonObject &messa
             QJsonObject row{{"image", filename}, {"role", role}, {"timestamp", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)}, {"label", QJsonValue(QJsonValue::Null)}, {"split", "train"}, {"synthetic_demo_only", true}, {"schema_version", 1}};
             manifest.write(QJsonDocument(row).toJson(QJsonDocument::Compact) + '\n');
         }
-        respond(socket, requestId, command, {{"image", filename}, {"dataset", id}, {"role", role}}); return;
+        respond(socket, requestId, command, {{"image", filename}, {"dataset", id}, {"kind", kind}, {"role", role}}); return;
     }
     if (command == "DATASET_CREATE") {
         QString error;
@@ -367,6 +380,39 @@ void TrainingServer::processMessage(QTcpSocket *socket, const QJsonObject &messa
         QStringList ids = QDir(m_projectRoot + "/data/" + kind).entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
         QJsonArray array; for (const QString &id : ids) array.append(id);
         respond(socket, requestId, command, {{"datasets", array}}); return;
+    }
+    if (command == "DATASET_IMAGES") {
+        const QString kind = payload.value("kind").toString("focus");
+        const QString id = payload.value("dataset").toString();
+        const QString splitFilter = payload.value("split").toString();
+        if ((kind != "focus" && kind != "fau") || !validId(id) ||
+            (!splitFilter.isEmpty() && splitFilter != "train" && splitFilter != "validation" && splitFilter != "test")) {
+            respond(socket, requestId, command, {}, false, "dataset kind, ID, or split is invalid"); return;
+        }
+        QFile manifest(datasetPath(kind, id) + "/manifest.jsonl");
+        if (!manifest.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            respond(socket, requestId, command, {}, false, "dataset manifest not found"); return;
+        }
+        QJsonArray images;
+        while (!manifest.atEnd()) {
+            const QJsonObject row = QJsonDocument::fromJson(manifest.readLine()).object();
+            const QString image = QFileInfo(row.value("image").toString()).fileName();
+            if (image.isEmpty() || (!splitFilter.isEmpty() && row.value("split").toString("train") != splitFilter)) continue;
+            images.append(QJsonObject{{"image", image}, {"role", row.value("role")},
+                {"label", row.value("label")}, {"split", row.value("split").toString("train")}});
+        }
+        respond(socket, requestId, command, {{"kind", kind}, {"dataset", id}, {"images", images}}); return;
+    }
+    if (command == "MODEL_CHECKPOINTS") {
+        const QString kind = payload.value("kind").toString();
+        if (kind != "focus" && kind != "fau") {
+            respond(socket, requestId, command, {}, false, "kind must be focus or fau"); return;
+        }
+        const QStringList files = QDir(m_projectRoot + "/models/" + kind)
+            .entryList({"*.pt", "*.json"}, QDir::Files, QDir::Name);
+        QJsonArray checkpoints;
+        for (const QString &file : files) checkpoints.append(file);
+        respond(socket, requestId, command, {{"kind", kind}, {"checkpoints", checkpoints}}); return;
     }
     if (command == "DATASET_LABEL" || command == "DATASET_SPLIT") {
         const QString kind = payload.value("kind").toString("focus"), id = payload.value("dataset").toString();

@@ -83,7 +83,10 @@ def train(args):
     train_loader = DataLoader(KeypointDataset(train_rows), batch_size=args.batch_size, shuffle=True, collate_fn=collate_samples)
     validation_loader = DataLoader(KeypointDataset(validation_rows), batch_size=args.batch_size, shuffle=False, collate_fn=collate_samples)
     device = torch.device(args.device)
-    model = build_model(len(keypoint_ids)).to(device)
+    try:
+        model = build_model(len(keypoint_ids)).to(device)
+    except Exception as error:
+        raise RuntimeError("Pretrained weights not installed or could not be loaded: " + str(error)) from error
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
     best_loss = float("inf")
     best_state = None

@@ -6,14 +6,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>980</width>
-    <height>680</height>
+   <width>1280</width>
+   <height>860</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>980</width>
-    <height>680</height>
+    <width>1280</width>
+    <height>860</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -120,6 +120,9 @@
               <item row="1" column="4"><widget class="QLabel" name="poseValueRY"><property name="minimumSize"><size><width>96</width><height>28</height></size></property><property name="maximumSize"><size><width>110</width><height>16777215</height></size></property><property name="text"><string>0.000000</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
               <item row="1" column="5"><widget class="QLabel" name="poseValueRZ"><property name="minimumSize"><size><width>96</width><height>28</height></size></property><property name="maximumSize"><size><width>110</width><height>16777215</height></size></property><property name="text"><string>0.000000</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
              </layout></item>
+            <item><widget class="QLabel" name="poseValidityLabel"><property name="text"><string>Position validity: SIMULATED only</string></property></widget></item>
+            <item><widget class="QLabel" name="poseTargetLabel"><property name="text"><string>Target position: UNAVAILABLE · simulation provider reports current pose only</string></property><property name="wordWrap"><bool>true</bool></property></widget></item>
+            <item><widget class="QLabel" name="poseUnitsLabel"><property name="text"><string>Units: X/Y/Z mm · RX/RY/RZ degrees</string></property></widget></item>
             </layout>
            </widget>
           </item>
@@ -152,63 +155,21 @@
           <property name="title">
            <string>System status</string>
           </property>
-          <layout class="QFormLayout" name="statusForm">
-           <item row="0" column="0">
-            <widget class="QLabel" name="cameraStatusCaption">
-             <property name="text">
-              <string>Camera backend</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QLabel" name="cameraStatusLabel">
-             <property name="text">
-              <string>Synthetic camera ready</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QLabel" name="datasetCaption">
-             <property name="text">
-              <string>Focus dataset</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <widget class="QLabel" name="datasetStatusLabel">
-             <property name="text">
-              <string>Not selected</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="0">
-            <widget class="QLabel" name="runCaption">
-             <property name="text">
-              <string>Active run</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1">
-            <widget class="QLabel" name="runStatusLabel">
-             <property name="text">
-              <string>None</string>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="0">
-            <widget class="QLabel" name="safetyCaption">
-             <property name="text">
-              <string>Motion</string>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="1">
-            <widget class="QLabel" name="safetyLabel">
-             <property name="text">
-              <string>Simulation only; physical commands unavailable</string>
-             </property>
-            </widget>
-           </item>
+          <layout class="QGridLayout" name="statusForm">
+           <item row="0" column="0"><widget class="QLabel" name="cameraStatusCaption"><property name="text"><string>Camera backend</string></property></widget></item>
+           <item row="0" column="1"><widget class="QLabel" name="cameraStatusLabel"><property name="text"><string>Synthetic camera available</string></property></widget></item>
+           <item row="0" column="2"><widget class="QLabel" name="serverHealthCaption"><property name="text"><string>Server status</string></property></widget></item>
+           <item row="0" column="3"><widget class="QLabel" name="serverHealthLabel"><property name="text"><string>Not connected</string></property></widget></item>
+           <item row="1" column="0"><widget class="QLabel" name="datasetCaption"><property name="text"><string>Focus dataset</string></property></widget></item>
+           <item row="1" column="1"><widget class="QLabel" name="datasetStatusLabel"><property name="text"><string>Not selected</string></property></widget></item>
+           <item row="1" column="2"><widget class="QLabel" name="runCaption"><property name="text"><string>Active run</string></property></widget></item>
+           <item row="1" column="3"><widget class="QLabel" name="runStatusLabel"><property name="text"><string>None</string></property></widget></item>
+           <item row="2" column="0"><widget class="QLabel" name="safetyCaption"><property name="text"><string>Motion provider</string></property></widget></item>
+           <item row="2" column="1"><widget class="QLabel" name="safetyLabel"><property name="text"><string>SIMULATION</string></property></widget></item>
+           <item row="2" column="2"><widget class="QLabel" name="futureGmrtCaption"><property name="text"><string>Future GMRT connection</string></property></widget></item>
+           <item row="2" column="3"><widget class="QLabel" name="futureGmrtLabel"><property name="text"><string>NOT AVAILABLE</string></property></widget></item>
+           <item row="3" column="0"><widget class="QLabel" name="modelAvailabilityCaption"><property name="text"><string>Neural model support</string></property></widget></item>
+           <item row="3" column="1" colspan="3"><widget class="QLabel" name="modelAvailabilityLabel"><property name="text"><string>Check by selecting a pretrained workflow</string></property><property name="wordWrap"><bool>true</bool></property></widget></item>
           </layout>
          </widget>
         </item>
@@ -298,14 +259,14 @@
           <item>
            <widget class="QPushButton" name="startTopButton">
             <property name="text">
-             <string>Start top preview</string>
+             <string>Connect TOP + preview</string>
             </property>
            </widget>
           </item>
           <item>
            <widget class="QPushButton" name="startSideButton">
             <property name="text">
-             <string>Start side preview</string>
+             <string>Connect SIDE + preview</string>
             </property>
            </widget>
           </item>
@@ -316,6 +277,10 @@
             </property>
            </widget>
           </item>
+          <item><widget class="QPushButton" name="disconnectTopCameraButton"><property name="text"><string>Disconnect TOP</string></property></widget></item>
+          <item><widget class="QPushButton" name="disconnectSideCameraButton"><property name="text"><string>Disconnect SIDE</string></property></widget></item>
+          <item><widget class="QPushButton" name="captureTopCameraButton"><property name="text"><string>Capture TOP to focus dataset</string></property></widget></item>
+          <item><widget class="QPushButton" name="captureSideCameraButton"><property name="text"><string>Capture SIDE to focus dataset</string></property></widget></item>
           <item>
            <widget class="QLabel" name="cameraInfoLabel">
             <property name="text">
@@ -323,6 +288,13 @@
             </property>
            </widget>
           </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="cameraSourceLayout">
+          <item><widget class="QLabel" name="cameraSourceSelectorCaption"><property name="text"><string>Camera source</string></property></widget></item>
+          <item><widget class="QComboBox" name="cameraSourceCombo"><item><property name="text"><string>Synthetic (available)</string></property></item><item><property name="text"><string>Basler (unavailable)</string></property></item></widget></item>
+          <item><widget class="QLabel" name="baslerUnavailableLabel"><property name="text"><string>Basler connection and acquisition are disabled</string></property></widget></item>
          </layout>
         </item>
         <item>
@@ -344,6 +316,8 @@
        <attribute name="title">
         <string>Focus Training</string>
        </attribute>
+       <layout class="QVBoxLayout" name="focusPageLayout">
+        <item><widget class="QScrollArea" name="focusScrollArea"><property name="widgetResizable"><bool>true</bool></property><widget class="QWidget" name="focusScrollContent">
        <layout class="QVBoxLayout" name="focusLayout">
         <item>
          <widget class="QGroupBox" name="focusDatasetGroup">
@@ -428,6 +402,9 @@
              </property>
             </widget>
            </item>
+           <item row="3" column="0"><widget class="QLabel" name="focusSplitCaption"><property name="text"><string>Selected image split</string></property></widget></item>
+           <item row="3" column="1"><widget class="QComboBox" name="focusSplitCombo"><item><property name="text"><string>train</string></property></item><item><property name="text"><string>validation</string></property></item><item><property name="text"><string>test</string></property></item></widget></item>
+           <item row="3" column="2"><widget class="QPushButton" name="setFocusSplitButton"><property name="text"><string>Save split</string></property></widget></item>
           </layout>
          </widget>
         </item>
@@ -507,27 +484,28 @@
              <item><widget class="QLineEdit" name="focusModelNameEdit"><property name="placeholderText"><string>Checkpoint name</string></property><property name="text"><string>focus_mobilenet</string></property></widget></item>
             </layout>
            </item>
-           <item row="2" column="0" colspan="6">
+           <item row="2" column="0" colspan="6"><widget class="QLabel" name="focusTrainingPolicyLabel"><property name="text"><string>Optimizer: AdamW for neural training; fixed baseline optimizer for statistical mode. Train/validation membership is read from the server dataset; test split remains held out.</string></property><property name="wordWrap"><bool>true</bool></property></widget></item>
+           <item row="3" column="0" colspan="6">
             <widget class="QProgressBar" name="focusProgressBar">
              <property name="value">
               <number>0</number>
              </property>
             </widget>
            </item>
-           <item row="3" column="0" colspan="6">
+           <item row="4" column="0" colspan="6">
             <widget class="LossChartWidget" name="focusLossChart" native="true"/>
            </item>
-           <item row="4" column="0" colspan="6">
+           <item row="5" column="0" colspan="6">
             <widget class="QLabel" name="focusMetricsLabel">
              <property name="text">
               <string>Epoch: — · Train loss: — · Validation loss: — · Accuracy: —</string>
              </property>
             </widget>
            </item>
-           <item row="5" column="0" colspan="6">
+           <item row="6" column="0" colspan="6">
             <widget class="QLabel" name="focusCheckpointLabel"><property name="text"><string>Best checkpoint: none</string></property></widget>
            </item>
-           <item row="6" column="0" colspan="6">
+           <item row="7" column="0" colspan="6">
             <widget class="QPlainTextEdit" name="focusLog">
              <property name="readOnly">
               <bool>true</bool>
@@ -542,21 +520,33 @@
         </item>
         <item>
          <widget class="QGroupBox" name="focusInferenceGroup">
-          <property name="title"><string>Focus checkpoint and image inference</string></property>
-          <layout class="QHBoxLayout" name="focusInferenceLayout">
-           <item><widget class="QLineEdit" name="focusInferenceCheckpointEdit"><property name="placeholderText"><string>Checkpoint filename from saved run</string></property></widget></item>
-           <item><widget class="QPushButton" name="focusInferenceButton"><property name="text"><string>Run focus inference</string></property></widget></item>
-           <item><widget class="QLabel" name="focusInferenceLabel"><property name="text"><string>Inference result unavailable</string></property></widget></item>
-           <item><widget class="QLabel" name="focusInferencePreview"><property name="minimumSize"><size><width>180</width><height>120</height></size></property><property name="text"><string>Image preview</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+          <property name="title"><string>Model testing and live inference</string></property>
+          <layout class="QGridLayout" name="focusInferenceLayout">
+           <item row="0" column="0"><widget class="QLabel" name="focusTestCaption"><property name="text"><string>Test split</string></property></widget></item>
+           <item row="0" column="1"><widget class="QComboBox" name="focusTestSplitCombo"><item><property name="text"><string>test</string></property></item><item><property name="text"><string>validation</string></property></item><item><property name="text"><string>train</string></property></item></widget></item>
+           <item row="0" column="2"><widget class="QPushButton" name="loadFocusTestImagesButton"><property name="text"><string>Load dataset images</string></property></widget></item>
+           <item row="0" column="3"><widget class="QComboBox" name="focusTestImageCombo"><item><property name="text"><string>sample_0000.pgm</string></property></item></widget></item>
+           <item row="0" column="4"><widget class="QPushButton" name="loadFocusCheckpointsButton"><property name="text"><string>Load checkpoints</string></property></widget></item>
+           <item row="0" column="5"><widget class="QComboBox" name="focusCheckpointCombo"><item><property name="text"><string>Select checkpoint</string></property></item></widget></item>
+           <item row="1" column="0" colspan="2"><widget class="QLineEdit" name="focusInferenceCheckpointEdit"><property name="placeholderText"><string>Server checkpoint filename (.pt or .json)</string></property></widget></item>
+           <item row="1" column="2"><widget class="QPushButton" name="focusInferenceButton"><property name="text"><string>Run focus inference</string></property></widget></item>
+           <item row="1" column="3"><widget class="QLabel" name="focusInferencePreview"><property name="minimumSize"><size><width>180</width><height>120</height></size></property><property name="text"><string>Image preview</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+           <item row="2" column="0" colspan="3"><widget class="QLabel" name="focusInferenceLabel"><property name="text"><string>Inference unavailable until a checkpoint is selected</string></property><property name="wordWrap"><bool>true</bool></property></widget></item>
+           <item row="3" column="0" colspan="4"><widget class="QLabel" name="focusTestingAvailabilityLabel"><property name="text"><string>MobileNetV3-Small testing requires a trained checkpoint and compatible PyTorch/torchvision. Pretrained weights are worker-managed and must be installed or cached on the server. Statistical baseline inference works offline. Evaluation reports saved run metrics; per-image inference uses one selected image.</string></property><property name="wordWrap"><bool>true</bool></property></widget></item>
           </layout>
          </widget>
         </item>
+       </layout>
+      </widget>
+        </widget></item>
        </layout>
       </widget>
       <widget class="QWidget" name="fauTab">
        <attribute name="title">
         <string>FAU Training</string>
        </attribute>
+       <layout class="QVBoxLayout" name="fauPageLayout">
+        <item><widget class="QScrollArea" name="fauScrollArea"><property name="widgetResizable"><bool>true</bool></property><widget class="QWidget" name="fauScrollContent">
        <layout class="QVBoxLayout" name="fauLayout">
         <item>
          <widget class="QGroupBox" name="fauAnnotationGroup">
@@ -585,6 +575,7 @@
              </property>
             </widget>
            </item>
+           <item row="0" column="3"><widget class="QPushButton" name="captureFauImageButton"><property name="text"><string>Capture selected role</string></property></widget></item>
            <item row="1" column="0">
             <widget class="QLabel" name="fauImageCaption">
              <property name="text">
@@ -720,21 +711,30 @@
            <item row="2" column="1" colspan="2"><widget class="QLineEdit" name="fauModelNameEdit"><property name="text"><string>fau_resnet18</string></property></widget></item>
            <item row="2" column="3"><widget class="QPushButton" name="startFauTrainingButton"><property name="text"><string>Start FAU training</string></property></widget></item>
            <item row="2" column="4"><widget class="QPushButton" name="cancelFauTrainingButton"><property name="text"><string>Cancel</string></property></widget></item>
-           <item row="3" column="0" colspan="6"><widget class="QProgressBar" name="fauProgressBar"><property name="value"><number>0</number></property></widget></item>
-           <item row="4" column="0" colspan="6"><widget class="LossChartWidget" name="fauLossChart" native="true"/></item>
-           <item row="5" column="0" colspan="6"><widget class="QLabel" name="fauMetricsLabel"><property name="text"><string>Epoch: — · Validation loss: — · Mean pixel error: —</string></property></widget></item>
-           <item row="6" column="0" colspan="6"><widget class="QLabel" name="fauCheckpointLabel"><property name="text"><string>Best checkpoint: none</string></property></widget></item>
+           <item row="3" column="0" colspan="6"><widget class="QLabel" name="fauTrainingPolicyLabel"><property name="text"><string>Optimizer: AdamW for ResNet18; fixed deterministic baseline for gradient-centroid mode. Train/validation membership is read from the server dataset; test split remains held out.</string></property><property name="wordWrap"><bool>true</bool></property></widget></item>
+           <item row="4" column="0" colspan="6"><widget class="QProgressBar" name="fauProgressBar"><property name="value"><number>0</number></property></widget></item>
+           <item row="5" column="0" colspan="6"><widget class="LossChartWidget" name="fauLossChart" native="true"/></item>
+           <item row="6" column="0" colspan="6"><widget class="QLabel" name="fauMetricsLabel"><property name="text"><string>Epoch: — · Validation loss: — · Mean pixel error: —</string></property></widget></item>
+           <item row="7" column="0" colspan="6"><widget class="QLabel" name="fauCheckpointLabel"><property name="text"><string>Best checkpoint: none</string></property></widget></item>
           </layout>
          </widget>
         </item>
         <item>
          <widget class="QGroupBox" name="fauInferenceGroup">
-          <property name="title"><string>Checkpoint detection preview and pixel-space overlay</string></property>
-          <layout class="QHBoxLayout" name="fauInferenceLayout">
-           <item><widget class="QLineEdit" name="fauInferenceCheckpointEdit"><property name="placeholderText"><string>Checkpoint filename from saved run</string></property></widget></item>
-           <item><widget class="QPushButton" name="fauInferenceButton"><property name="text"><string>Run FAU inference</string></property></widget></item>
-           <item><widget class="QLabel" name="fauInferenceLabel"><property name="text"><string>No detections loaded</string></property></widget></item>
-           <item><widget class="QLabel" name="fauInferencePreview"><property name="minimumSize"><size><width>260</width><height>180</height></size></property><property name="text"><string>TOP/SIDE overlay preview</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+          <property name="title"><string>Model testing and pixel-coordinate keypoint inference</string></property>
+          <layout class="QGridLayout" name="fauInferenceLayout">
+           <item row="0" column="0"><widget class="QLabel" name="fauTestCaption"><property name="text"><string>Image split</string></property></widget></item>
+           <item row="0" column="1"><widget class="QComboBox" name="fauTestSplitCombo"><item><property name="text"><string>test</string></property></item><item><property name="text"><string>validation</string></property></item><item><property name="text"><string>train</string></property></item></widget></item>
+           <item row="0" column="2"><widget class="QPushButton" name="loadFauTestImagesButton"><property name="text"><string>Load dataset images</string></property></widget></item>
+           <item row="0" column="3"><widget class="QComboBox" name="fauTestImageCombo"><item><property name="text"><string>sample_0000.pgm</string></property></item></widget></item>
+           <item row="0" column="4"><widget class="QComboBox" name="fauTestRoleCombo"><item><property name="text"><string>top</string></property></item><item><property name="text"><string>side</string></property></item></widget></item>
+           <item row="0" column="5"><widget class="QPushButton" name="loadFauCheckpointsButton"><property name="text"><string>Load checkpoints</string></property></widget></item>
+           <item row="0" column="6"><widget class="QComboBox" name="fauCheckpointCombo"><item><property name="text"><string>Select checkpoint</string></property></item></widget></item>
+           <item row="1" column="0" colspan="2"><widget class="QLineEdit" name="fauInferenceCheckpointEdit"><property name="placeholderText"><string>Server checkpoint filename (.pt or .json)</string></property></widget></item>
+           <item row="1" column="2"><widget class="QPushButton" name="fauInferenceButton"><property name="text"><string>Run FAU inference</string></property></widget></item>
+           <item row="1" column="3" colspan="2"><widget class="QLabel" name="fauInferencePreview"><property name="minimumSize"><size><width>260</width><height>180</height></size></property><property name="text"><string>Predicted keypoints: red · ground-truth overlay unavailable</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+           <item row="2" column="0" colspan="5"><widget class="QLabel" name="fauInferenceLabel"><property name="text"><string>No detections loaded. Pixel error requires saved annotations.</string></property><property name="wordWrap"><bool>true</bool></property></widget></item>
+           <item row="3" column="0" colspan="5"><widget class="QLabel" name="fauTestingAvailabilityLabel"><property name="text"><string>ResNet18 keypoint testing requires a trained checkpoint and compatible PyTorch/torchvision; pretrained weights are worker-managed. The gradient-centroid baseline runs offline. Predictions are shown in pixels. Ground-truth comparison and per-image pixel error are not yet available; calibrated mm/degree alignment is unavailable.</string></property><property name="wordWrap"><bool>true</bool></property></widget></item>
           </layout>
          </widget>
         </item>
@@ -752,6 +752,9 @@
           </property>
          </widget>
         </item>
+       </layout>
+      </widget>
+        </widget></item>
        </layout>
       </widget>
       <widget class="QWidget" name="resultsTab">

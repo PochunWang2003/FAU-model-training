@@ -52,7 +52,10 @@ def train(args):
     train_loader = DataLoader(FocusDataset(train_rows), batch_size=args.batch_size, shuffle=True)
     validation_loader = DataLoader(FocusDataset(validation_rows), batch_size=args.batch_size, shuffle=False)
     device = torch.device(args.device)
-    model = build_model().to(device)
+    try:
+        model = build_model().to(device)
+    except Exception as error:
+        raise RuntimeError("Pretrained weights not installed or could not be loaded: " + str(error)) from error
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
     loss_function = torch.nn.CrossEntropyLoss()
     best_loss = float("inf")

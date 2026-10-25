@@ -8,6 +8,7 @@ import tempfile
 import time
 import unittest
 import uuid
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -121,6 +122,9 @@ class QtServerIntegrationTests(unittest.TestCase):
         encoded = frame["payload"]["image_base64"]
         self.assertGreater(len(encoded), 100)
         self.assertEqual(frame["payload"]["format"], "PNG")
+        closed = self.command("CAMERA_CLOSE", {"role":"top"})
+        self.assertTrue(closed["ok"], closed)
+        self.assertEqual(closed["payload"]["state"], "closed")
 
     def test_malformed_json_and_incomplete_line(self):
         self.sock.sendall(b'{"protocol_version":1\n')
@@ -136,6 +140,12 @@ class QtServerIntegrationTests(unittest.TestCase):
         self.create_dataset("focus", dataset)
         self.assertTrue(self.command("DATASET_LABEL", {"kind":"focus", "dataset":dataset,
                          "image":"sample_0000.pgm", "label":"sharp"})["ok"])
+        images = self.command("DATASET_IMAGES", {"kind":"focus", "dataset":dataset,"split":"train"})
+        self.assertTrue(images["ok"], images)
+        self.assertIn("sample_0000.pgm", [row["image"] for row in images["payload"]["images"]])
+        missing = self.command("FOCUS_INFER", {"dataset":dataset,"image":"sample_0000.pgm","checkpoint":"missing.json"})
+        self.assertFalse(missing["ok"])
+        self.assertIn("checkpoint", missing["error"]["message"])
         self.assertTrue(self.command("FOCUS_SCORE", {"dataset":dataset,"image":"sample_0000.pgm"})["ok"])
         start = self.command("FOCUS_TRAIN_START", {"dataset":dataset,"epochs":4,"learning_rate":0.05})
         self.assertTrue(start["ok"], start)
@@ -144,6 +154,9 @@ class QtServerIntegrationTests(unittest.TestCase):
         completed = self.event("TRAINING_COMPLETED", timeout=15)
         checkpoint = Path(completed["payload"]["checkpoint"])
         self.assertTrue(checkpoint.is_file())
+        checkpoints = self.command("MODEL_CHECKPOINTS", {"kind":"focus"})
+        self.assertTrue(checkpoints["ok"], checkpoints)
+        self.assertIn(checkpoint.name, checkpoints["payload"]["checkpoints"])
         result = json.loads((checkpoint.parent.parent.parent / "runs" / (start["payload"]["run_id"]) / "result.json").read_text())
         self.assertEqual(result["status"], "COMPLETED")
         evaluated = self.command("FOCUS_EVALUATE", {"run_id":start["payload"]["run_id"]})
@@ -156,6 +169,9 @@ class QtServerIntegrationTests(unittest.TestCase):
     def test_fau_annotation_and_baseline_run(self):
         dataset = "fau_" + uuid.uuid4().hex[:8]
         self.create_dataset("fau", dataset)
+        capture = self.command("CAMERA_CAPTURE", {"kind":"fau","dataset":dataset,"role":"side"})
+        self.assertTrue(capture["ok"], capture)
+        self.assertEqual(capture["payload"]["role"], "side")
         annotation = self.command("FAU_ANNOTATION_SAVE", {"dataset":dataset,"image":"sample_0000.pgm","role":"top",
             "roi":{"x":0,"y":0,"width":160,"height":120},"features":[{"id":"TOP_DX","x":80,"y":60,"valid":True,"confidence":0.9}]})
         self.assertTrue(annotation["ok"], annotation)
@@ -166,7 +182,12 @@ class QtServerIntegrationTests(unittest.TestCase):
         self.assertTrue(start["ok"], start)
         complete = self.event("TRAINING_COMPLETED")
         self.assertIn("deterministic", complete["payload"]["warning"])
+        evaluated = self.command("FAU_EVALUATE", {"run_id":start["payload"]["run_id"]})
+        self.assertTrue(evaluated["ok"], evaluated)
         checkpoint = Path(complete["payload"]["checkpoint"])
+        checkpoints = self.command("MODEL_CHECKPOINTS", {"kind":"fau"})
+        self.assertTrue(checkpoints["ok"], checkpoints)
+        self.assertIn(checkpoint.name, checkpoints["payload"]["checkpoints"])
         inferred = self.command("FAU_INFER", {"dataset":dataset,"image":"sample_0000.pgm","role":"top","checkpoint":checkpoint.name})
         self.assertTrue(inferred["ok"], inferred)
         self.assertTrue(inferred["payload"]["predictions"])
@@ -197,6 +218,9 @@ class QtServerIntegrationTests(unittest.TestCase):
         imported_row = next(row for row in rows if row.get("source_name") == "extra.pgm")
         split = self.command("DATASET_SPLIT", {"kind":"focus","dataset":dataset,"image":imported_row["image"],"split":"test"})
         self.assertTrue(split["ok"], split)
+        test_images = self.command("DATASET_IMAGES", {"kind":"focus","dataset":dataset,"split":"test"})
+        self.assertTrue(test_images["ok"], test_images)
+        self.assertEqual([row["image"] for row in test_images["payload"]["images"]], [imported_row["image"]])
 
     def test_cancel_and_reconnect_active_job(self):
         dataset = "cancel_" + uuid.uuid4().hex[:8]
@@ -258,6 +282,19 @@ class QtServerIntegrationTests(unittest.TestCase):
         self.assertIsNone(process.poll(), "Qt Widgets application exited during startup")
         process.terminate()
         process.wait(timeout=3)
+
+    def test_ui_exposes_model_testing_and_status_controls(self):
+        tree = ET.parse(ROOT / "UI/qt-ui/mainwindow.ui")
+        names = {widget.get("name") for widget in tree.iter("widget")}
+        required = {"focusTestSplitCombo", "focusTestImageCombo", "loadFocusTestImagesButton",
+                    "focusCheckpointCombo", "loadFocusCheckpointsButton",
+                    "captureFauImageButton",
+                    "fauTestSplitCombo", "fauTestImageCombo", "fauTestRoleCombo",
+                    "loadFauTestImagesButton", "fauCheckpointCombo", "loadFauCheckpointsButton",
+                    "focusInferenceCheckpointEdit",
+                    "fauInferenceCheckpointEdit", "serverHealthLabel", "futureGmrtLabel",
+                    "poseValidityLabel", "poseTargetLabel", "countSourceLabel"}
+        self.assertTrue(required.issubset(names), f"missing UI controls: {required - names}")
 
 
 if __name__ == "__main__":
